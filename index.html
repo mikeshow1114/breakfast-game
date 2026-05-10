@@ -171,11 +171,35 @@ z-index:300;transition:opacity .4s ease;
 <!-- DOM UI Overlay for Phaser -->
 <div id="ui-overlay"></div>
 
-<!-- Phaser 3 -->
+<!-- Phaser 3: load synchronously first, then game.js -->
 
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
-
-<script src="game.js"></script>
+<script>
+// Dynamically load Phaser first, then game.js
+(function() {
+  var phaserScript = document.createElement('script');
+  phaserScript.src = 'https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js';
+  phaserScript.onload = function() {
+    var gameScript = document.createElement('script');
+    gameScript.src = 'game.js?v=' + Date.now();
+    document.head.appendChild(gameScript);
+  };
+  phaserScript.onerror = function() {
+    // Fallback CDN
+    var phaserScript2 = document.createElement('script');
+    phaserScript2.src = 'https://cdnjs.cloudflare.com/ajax/libs/phaser/3.70.0/phaser.min.js';
+    phaserScript2.onload = function() {
+      var gameScript = document.createElement('script');
+      gameScript.src = 'game.js?v=' + Date.now();
+      document.head.appendChild(gameScript);
+    };
+    phaserScript2.onerror = function() {
+      document.getElementById('load-text').textContent = '❌ 載入失敗，請重新整理頁面';
+    };
+    document.head.appendChild(phaserScript2);
+  };
+  document.head.appendChild(phaserScript);
+})();
+</script>
 
 </body>
 </html>
