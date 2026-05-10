@@ -1535,7 +1535,12 @@ LOGIN.JS — DOM Login Logic
 ═══════════════════════════════════ */
 function showLoginDOM() {
 const el = document.getElementById(‘login-screen’);
-if (el) el.classList.remove(‘hidden’);
+if (!el) return;
+el.style.display = ‘flex’;
+el.style.opacity = ‘0’;
+requestAnimationFrame(() => {
+requestAnimationFrame(() => { el.style.opacity = ‘1’; });
+});
 }
 
 function switchLoginTab(tab) {
@@ -1601,41 +1606,8 @@ window.initPhaser(saved);
 }
 
 // Auto-login on load
-window.addEventListener(‘load’, () => {
-try {
-const lu = JSON.parse(localStorage.getItem(‘bk2_lastuser’));
-if (lu?.id) {
-const saved = DB.load(lu.id);
-if (saved && saved.branches?.length > 0) {
-saved.user = lu;
-setTimeout(() => {
-const ls = document.getElementById(‘loading-screen’);
-if (ls) ls.classList.add(‘hidden’);
-window.initPhaser(saved);
-}, 1300);
-return;
-}
-}
-} catch(e) {}
-// Show login after load animation
-});
-/* ═══════════════════════════════════
-MAIN.JS — Phaser 3 Game Config
-═══════════════════════════════════ */
-
-// Shared game state (persists across scenes)
-window.GAME_STATE = DB.freshState();
-window.ACTIVE_ORDERS = [];
-window.ORDER_ID_CTR = 0;
-
-// ── Loading progress simulation ──
-function setLoadProgress(pct, text) {
-const bar = document.getElementById(‘load-bar’);
-const txt = document.getElementById(‘load-text’);
-if (bar) bar.style.width = pct + ‘%’;
-if (txt) txt.textContent = text;
-}
-
+window.addEventListener(‘DOMContentLoaded’, () => {
+// Start loading animation
 setLoadProgress(20, ‘初始化音效引擎…’);
 setTimeout(() => setLoadProgress(45, ‘載入遊戲資源…’), 300);
 setTimeout(() => setLoadProgress(70, ‘建構渲染管線…’), 600);
@@ -1644,15 +1616,46 @@ setTimeout(() => setLoadProgress(90, ‘準備場景系統…’), 900);
 setTimeout(() => {
 setLoadProgress(100, ‘就緒！’);
 setTimeout(() => {
+// Check auto-login
+try {
+const lu = JSON.parse(localStorage.getItem(‘bk2_lastuser’));
+if (lu?.id) {
+const saved = DB.load(lu.id);
+if (saved && saved.branches?.length > 0) {
+saved.user = lu;
 const ls = document.getElementById(‘loading-screen’);
-if (ls) ls.classList.add(‘hidden’);
-// Show login DOM
+if (ls) { ls.style.opacity=‘0’; setTimeout(()=>ls.style.display=‘none’,400); }
+window.initPhaser(saved);
+return;
+}
+}
+} catch(e) {}
+// Show login screen
+const ls = document.getElementById(‘loading-screen’);
+if (ls) { ls.style.opacity=‘0’; setTimeout(()=>ls.style.display=‘none’,400); }
 showLoginDOM();
 }, 400);
 }, 1200);
+});
+/* ═══════════════════════════════════
+MAIN.JS — Phaser 3 Game Config
+═══════════════════════════════════ */
 
-// ── Phaser Config ──
-const config = {
+// Shared game state
+window.GAME_STATE = DB.freshState();
+window.ACTIVE_ORDERS = [];
+window.ORDER_ID_CTR = 0;
+
+function setLoadProgress(pct, text) {
+const bar = document.getElementById(‘load-bar’);
+const txt = document.getElementById(‘load-text’);
+if (bar) bar.style.width = pct + ‘%’;
+if (txt) txt.textContent = text;
+}
+
+// Phaser config (created after DOM ready)
+function buildPhaserConfig() {
+return {
 type: Phaser.AUTO,
 width: Math.min(window.innerWidth, 430),
 height: window.innerHeight,
@@ -1665,22 +1668,17 @@ scale: {
 mode: Phaser.Scale.FIT,
 autoCenter: Phaser.Scale.CENTER_BOTH,
 },
-render: {
-pixelArt: false,
-antialias: true,
-antialiasGL: true,
-},
+render: { pixelArt: false, antialias: true, antialiasGL: true },
 };
+}
 
 // Init Phaser after login
 window.initPhaser = function(userState) {
 Object.assign(window.GAME_STATE, userState);
-// Hide login DOM
 const loginEl = document.getElementById(‘login-screen’);
-if (loginEl) loginEl.classList.add(‘hidden’);
-
+if (loginEl) { loginEl.style.opacity = ‘0’; setTimeout(() => loginEl.style.display = ‘none’, 400); }
 if (!window._phaserGame) {
-window._phaserGame = new Phaser.Game(config);
+window._phaserGame = new Phaser.Game(buildPhaserConfig());
 } else {
 window._phaserGame.scene.start(‘GameScene’);
 }
