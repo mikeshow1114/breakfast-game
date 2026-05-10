@@ -509,15 +509,21 @@ function initGame(){
   buildBuyPanel();
   buildStaffPanel();
   refreshGameUI();
-  renderInterior();
+  showScreen('screen-game');   // show first so DOM has dimensions
+  startBGM();
+  // render interior AFTER screen is visible so offsetHeight works
+  requestAnimationFrame(()=>{
+    setTimeout(()=>{
+      renderInterior();
+      const br=getCurrentBranch();
+      showToast('🎉 '+(br?.shopName||state.charName+'的早餐店')+'開張！');
+    }, 80);
+  });
   startDayTimer();
   startOrderSpawner();
   if(!customerLoopStarted){ customerLoopStarted=true; setInterval(updateCustomerQueue,2500); }
   if(!autoIncomeStarted){ autoIncomeStarted=true; startAutoIncome(); }
   startAutoServeStaff();
-  showScreen('screen-game');
-  startBGM();
-  setTimeout(()=>showToast('🎉 '+getCurrentBranch().shopName+'開張！'),600);
 }
 function stopAllTimers(){
   if(dayTimerInterval){ clearInterval(dayTimerInterval); dayTimerInterval=null; }
@@ -665,7 +671,7 @@ function renderInterior(){
 
   // Build actual grid from layout
   // Calculate cell size to fill building nicely
-  const viewH=view.offsetHeight||200;
+  const viewH=view.offsetHeight||Math.floor(window.innerHeight*0.35)||200;
   const buildingH=Math.min(Math.floor(viewH*0.75), 200);
   const cellSize=Math.floor((buildingH-12)/FLOOR_ROWS);
   building.style.height=buildingH+'px';
