@@ -1,1168 +1,1687 @@
-/* ════════════════════════════════════════════
-   早安小老闆 v2.0
-   - 地圖選店面
-   - 室內擺設
-   - 30分鐘一天
-   - 達日營收%開分店
-   - 員工系統
-   - 訂單系統 + 音效
-════════════════════════════════════════════ */
+/* ═══════════════════════════════════
+DATA.JS — All game constants
+═══════════════════════════════════ */
+‘use strict’;
 
-// ══════════════ SOUND ENGINE ══════════════
-let audioCtx = null, musicOn = true, bgmTimer = null, bgmBeat = 0;
-function getCtx(){ if(!audioCtx) try{ audioCtx=new(window.AudioContext||window.webkitAudioContext)() }catch(e){} return audioCtx; }
-function tone(f,type,dur,vol,delay=0){
-  const ctx=getCtx(); if(!ctx) return;
-  try{
-    const o=ctx.createOscillator(), g=ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.type=type; o.frequency.setValueAtTime(f,ctx.currentTime+delay);
-    g.gain.setValueAtTime(vol,ctx.currentTime+delay);
-    g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+delay+dur);
-    o.start(ctx.currentTime+delay); o.stop(ctx.currentTime+delay+dur+.05);
-  }catch(e){}
-}
-function noise(dur,vol,hipass=2000){
-  const ctx=getCtx(); if(!ctx) return;
-  try{
-    const buf=ctx.createBuffer(1,ctx.sampleRate*dur,ctx.sampleRate);
-    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
-    const s=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    s.buffer=buf; f.type='highpass'; f.frequency.value=hipass;
-    s.connect(f); f.connect(g); g.connect(ctx.destination);
-    g.gain.setValueAtTime(vol,ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+dur);
-    s.start();
-  }catch(e){}
-}
-const SFX={
-  tap(){tone(600,'sine',.05,.08)},
-  sizzle(){noise(.3,.22,2200)},
-  complete(){tone(880,'sine',.08,.25);tone(1320,'sine',.2,.2,.07);tone(1760,'sine',.25,.18,.15)},
-  coin(){tone(1200,'square',.05,.12);tone(1600,'square',.05,.1,.03);tone(2000,'sine',.08,.08,.06)},
-  correct(){[523,659,784,1047].forEach((f,i)=>tone(f,'sine',.15,.18,i*.08))},
-  wrong(){tone(220,'sawtooth',.2,.25);tone(196,'sawtooth',.2,.25,.1)},
-  levelUp(){[523,587,659,698,784,880,988,1047].forEach((f,i)=>tone(f,'sine',.18,.22,i*.07))},
-  doorbell(){tone(698,'sine',.12,.14);tone(880,'sine',.12,.14,.13)},
-  timeout(){tone(440,'square',.08,.18);tone(330,'square',.08,.18,.1);tone(220,'square',.1,.25,.2)},
-  branchOpen(){[523,659,784,659,784,1047,784,1047,1319].forEach((f,i)=>tone(f,'sine',.2,.28,i*.1))},
-  place(){tone(800,'sine',.06,.12);tone(1000,'sine',.06,.1,.05)},
-  hire(){[440,554,659].forEach((f,i)=>tone(f,'sine',.12,.2,i*.09))},
-  fire(){tone(440,'sawtooth',.1,.2);tone(330,'sawtooth',.12,.18,.1)},
-  dayEnd(){[1047,988,880,784].forEach((f,i)=>tone(f,'sine',.18,.2,i*.1))},
-  dayStart(){[523,659,784,1047].forEach((f,i)=>tone(f,'sine',.15,.22,i*.08))},
+const GD = {
+// ── Menu Items ──
+MENU: [
+{ id:‘egg’,      emoji:‘🍳’, name:‘煎蛋’,    price:25,  time:3,  xp:5  },
+{ id:‘toast’,    emoji:‘🍞’, name:‘吐司’,    price:30,  time:4,  xp:6  },
+{ id:‘bacon’,    emoji:‘🥓’, name:‘培根’,    price:35,  time:5,  xp:8  },
+{ id:‘coffee’,   emoji:‘☕’, name:‘咖啡’,    price:40,  time:3,  xp:7  },
+{ id:‘sandwich’, emoji:‘🥪’, name:‘三明治’,  price:55,  time:8,  xp:12 },
+{ id:‘pancake’,  emoji:‘🥞’, name:‘鬆餅’,    price:65,  time:10, xp:15 },
+{ id:‘rice’,     emoji:‘🍱’, name:‘飯糰’,    price:30,  time:4,  xp:7  },
+{ id:‘waffle’,   emoji:‘🧇’, name:‘格子鬆餅’,price:70,  time:12, xp:18 },
+{ id:‘soy’,      emoji:‘🥛’, name:‘豆漿’,    price:20,  time:2,  xp:4  },
+{ id:‘noodle’,   emoji:‘🍜’, name:‘湯麵’,    price:60,  time:9,  xp:14 },
+],
+
+// ── Cities ──
+CITIES: {
+taipei:    { name:‘台北’, desc:‘首都商圈，人潮最多’,  traffic:‘極高’, avgPrice:45, passive:1200, cx:205, cy:88  },
+newtaipei: { name:‘新北’, desc:‘雙北通勤族，穩定客源’, traffic:‘高’,   avgPrice:38, passive:1000, cx:192, cy:116 },
+taoyuan:   { name:‘桃園’, desc:‘航空城，多元族群’,    traffic:‘中高’,  avgPrice:40, passive:900,  cx:172, cy:138 },
+hsinchu:   { name:‘新竹’, desc:‘科技人，消費力強’,    traffic:‘中’,    avgPrice:50, passive:950,  cx:160, cy:167 },
+taichung:  { name:‘台中’, desc:‘宜居城市，慢活族’,    traffic:‘高’,    avgPrice:42, passive:1100, cx:168, cy:256 },
+tainan:    { name:‘台南’, desc:‘古都美食激戰區’,      traffic:‘中高’,  avgPrice:35, passive:1000, cx:171, cy:362 },
+kaohsiung: { name:‘高雄’, desc:‘南部最大商圈’,        traffic:‘高’,    avgPrice:40, passive:1050, cx:184, cy:406 },
+hualien:   { name:‘花蓮’, desc:‘觀光勝地，旺季超強’,  traffic:‘中’,    avgPrice:45, passive:800,  cx:256, cy:242 },
+},
+
+// ── Staff ──
+STAFF: [
+{ id:‘helper1’,  name:‘工讀生小花’,   emoji:‘👩’, speed:.05, satisfaction:.05, autoServe:false, salary:200,  desc:‘速度+5% 滿意度+5%’,   badge:‘🟢 入門’ },
+{ id:‘helper2’,  name:‘廚師助理阿豪’, emoji:‘👨’, speed:.12, satisfaction:.08, autoServe:false, salary:450,  desc:‘速度+12% 滿意度+8%’,  badge:‘🔵 中級’ },
+{ id:‘server1’,  name:‘外場服務生小玲’,emoji:‘🧑’,speed:.0,  satisfaction:.2,  autoServe:true,  autoInterval:15, salary:350, desc:‘自動服務 滿意度+20%’, badge:‘🟡 服務’ },
+{ id:‘chef1’,    name:‘正職廚師老陳’, emoji:‘👴’, speed:.25, satisfaction:.1,  autoServe:false, salary:900,  desc:‘速度+25% 滿意度+10%’, badge:‘🔴 資深’ },
+{ id:‘manager’,  name:‘店長王姐’,     emoji:‘👩‍💼’,speed:.1, satisfaction:.25, autoServe:true,  autoInterval:8,  salary:1500, desc:‘全能加成 自動送餐’,  badge:‘🟣 店長’ },
+],
+
+// ── Equipment ──
+EQUIP: {
+cashier:   { name:‘收銀台’,  emoji:‘💰’, free:true,  required:true,  desc:‘必要設備’,      category:‘essential’ },
+stove:     { name:‘瓦斯爐’,  emoji:‘🍳’, free:true,  required:true,  desc:‘必要設備’,      category:‘essential’ },
+table1:    { name:‘餐桌’,    emoji:‘🪑’, free:true,  required:true,  desc:‘必要設備(≥1)’, category:‘table’, max:6 },
+counter:   { name:‘工作台’,  emoji:‘🔪’, free:true,  required:false, desc:‘建議放置’,      category:‘prep’ },
+fridge:    { name:‘冰箱’,    emoji:‘🧊’, free:false, cost:800,       desc:‘速度+15%’,      category:‘equip’ },
+display:   { name:‘展示架’,  emoji:‘🧁’, free:false, cost:500,       desc:‘客單+$5’,       category:‘equip’ },
+speaker:   { name:‘音響’,    emoji:‘🎵’, free:false, cost:400,       desc:‘滿意度+10%’,    category:‘deco’  },
+tv:        { name:‘電視’,    emoji:‘📺’, free:false, cost:500,       desc:‘等待耐心+5s’,   category:‘deco’  },
+sign:      { name:‘招牌燈’,  emoji:‘✨’, free:false, cost:700,       desc:‘客流+15%’,      category:‘deco’  },
+plant:     { name:‘盆栽’,    emoji:‘🌿’, free:false, cost:200,       desc:‘評分+0.2’,      category:‘deco’  },
+},
+
+// ── Titles ──
+TITLES: [
+{ level:1,  title:‘初學廚師’, min:0      },
+{ level:2,  title:‘小廚師’,   min:500    },
+{ level:3,  title:‘實習老闆’, min:1500   },
+{ level:4,  title:‘小老闆’,   min:3000   },
+{ level:5,  title:‘連鎖新手’, min:6000   },
+{ level:6,  title:‘展店達人’, min:12000  },
+{ level:7,  title:‘地區霸主’, min:25000  },
+{ level:8,  title:‘全台知名’, min:50000  },
+{ level:9,  title:‘早餐大王’, min:100000 },
+{ level:10, title:‘早餐帝國’, min:200000 },
+],
+
+// ── Branch expansion conditions ──
+EXPAND: [
+{ cityId:‘newtaipei’, cost:8000,  dayRevTarget:2000, daysNeeded:3 },
+{ cityId:‘taoyuan’,   cost:10000, dayRevTarget:2500, daysNeeded:3 },
+{ cityId:‘hsinchu’,   cost:12000, dayRevTarget:3000, daysNeeded:4 },
+{ cityId:‘taichung’,  cost:18000, dayRevTarget:4000, daysNeeded:5 },
+{ cityId:‘tainan’,    cost:22000, dayRevTarget:5000, daysNeeded:5 },
+{ cityId:‘kaohsiung’, cost:25000, dayRevTarget:6000, daysNeeded:6 },
+{ cityId:‘hualien’,   cost:15000, dayRevTarget:3500, daysNeeded:4 },
+],
+
+BRANCH_PCT:     0.8,
+DAY_DURATION:   30 * 60 * 1000,
+ORDER_TIMER:    20,
+MAX_ORDERS:     4,
+FLOOR_COLS:     6,
+FLOOR_ROWS:     5,
+CUST_EMOJIS:    [‘👨’,‘👩’,‘👴’,‘👵’,‘👦’,‘👧’,‘🧑’,‘👱’],
 };
+
+// ── Shared save/load ──
+const DB = {
+genId(){ return Math.random().toString(36).substr(2,8).toUpperCase(); },
+save(state){
+if(!state.user) return;
+try{ localStorage.setItem(‘bk2_’+state.user.id, JSON.stringify(state)); }catch(e){}
+},
+load(uid){
+try{
+const raw = localStorage.getItem(‘bk2_’+uid);
+if(!raw) return null;
+const s = JSON.parse(raw);
+if(!Array.isArray(s.branches))          s.branches=[];
+if(!Array.isArray(s.hiredStaff))         s.hiredStaff=[];
+if(!Array.isArray(s.achievements))       s.achievements=[];
+if(!Array.isArray(s.purchasedItems))     s.purchasedItems=[];
+if(!s.branchProgress)                    s.branchProgress={};
+return s;
+}catch(e){ return null; }
+},
+getTitle(income){
+let t = GD.TITLES[0];
+for(const tt of GD.TITLES){ if(income >= tt.min) t = tt; }
+return t;
+},
+freshState(){
+return {
+user:null, char:null, charName:’’, money:500,
+totalIncome:0, totalCooked:0, level:1, xp:0, rating:4.0,
+branches:[], activeBranchIdx:0, hiredStaff:[], achievements:[],
+purchasedItems:[], branchProgress:{},
+combo:0, bestCombo:0, dayCount:1, dayRevenue:0, dayGoal:1500,
+shopName:’’,
+};
+},
+};
+/* ═══════════════════════════════════
+AUDIO.JS — Web Audio Engine
+═══════════════════════════════════ */
+const AudioEngine = (() => {
+let ctx = null, musicOn = true, bgmNodes = [], bgmBeat = 0, bgmTimer = null;
+
+function getCtx(){
+if(!ctx) try{ ctx = new(window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+return ctx;
+}
+function resume(){ const c=getCtx(); if(c&&c.state===‘suspended’) c.resume(); }
+
+function tone(f, type, dur, vol, delay=0){
+const c=getCtx(); if(!c) return;
+try{
+const o=c.createOscillator(), g=c.createGain();
+o.connect(g); g.connect(c.destination);
+o.type=type; o.frequency.setValueAtTime(f, c.currentTime+delay);
+g.gain.setValueAtTime(vol, c.currentTime+delay);
+g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime+delay+dur);
+o.start(c.currentTime+delay); o.stop(c.currentTime+delay+dur+.05);
+}catch(e){}
+}
+function noise(dur, vol, hipass=2000){
+const c=getCtx(); if(!c) return;
+try{
+const buf=c.createBuffer(1,c.sampleRate*dur,c.sampleRate);
+const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+const s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+s.buffer=buf; f.type=‘highpass’; f.frequency.value=hipass;
+s.connect(f); f.connect(g); g.connect(c.destination);
+g.gain.setValueAtTime(vol,c.currentTime);
+g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+dur);
+s.start();
+}catch(e){}
+}
+
+const SFX = {
+tap()    { tone(700,‘sine’,.05,.07); },
+sizzle() { noise(.35,.2,2000); },
+complete(){ tone(880,‘sine’,.08,.22); tone(1320,‘sine’,.18,.18,.07); tone(1760,‘sine’,.28,.16,.15); },
+coin()   { tone(1200,‘square’,.05,.1); tone(1600,‘square’,.04,.08,.03); tone(2000,‘sine’,.07,.06,.06); },
+correct(){ [523,659,784,1047].forEach((f,i)=>tone(f,‘sine’,.15,.17,i*.08)); },
+wrong()  { tone(220,‘sawtooth’,.2,.22); tone(196,‘sawtooth’,.2,.22,.1); },
+levelUp(){ [523,587,659,698,784,880,988,1047].forEach((f,i)=>tone(f,‘sine’,.18,.2,i*.07)); },
+doorbell(){ tone(698,‘sine’,.12,.13); tone(880,‘sine’,.12,.13,.13); },
+timeout(){ tone(440,‘square’,.08,.17); tone(330,‘square’,.08,.17,.1); tone(220,‘square’,.1,.22,.2); },
+branch() { [523,659,784,659,784,1047,784,1047,1319].forEach((f,i)=>tone(f,‘sine’,.2,.26,i*.1)); },
+dayEnd() { [1047,988,880,784].forEach((f,i)=>tone(f,‘sine’,.18,.18,i*.1)); },
+dayStart(){ [523,659,784,1047].forEach((f,i)=>tone(f,‘sine’,.15,.2,i*.08)); },
+place()  { tone(800,‘sine’,.06,.1); tone(1000,‘sine’,.06,.09,.05); },
+};
+
+// Generative BGM
 const BGM_SCALE=[523,587,659,698,784,880,988,1047];
 const BGM_BASS =[262,294,330,349,392,440,494,523];
 const BGM_PROG =[[0,2,4],[3,5,0],[4,6,1],[2,4,6]];
+
 function startBGM(){
-  if(bgmTimer) return;
-  bgmBeat=0;
-  bgmTimer=setInterval(()=>{
-    if(!musicOn) return;
-    const s=bgmBeat%32, ci=Math.floor(s/8)%BGM_PROG.length;
-    if(s%2===0) tone(BGM_BASS[BGM_PROG[ci][0]],'triangle',.28,.06);
-    if([0,3,6,9,12,15,18,21,24,27].includes(s)){
-      const ni=BGM_PROG[ci][Math.floor(Math.random()*BGM_PROG[ci].length)];
-      tone(BGM_SCALE[ni],'sine',.22,.04);
-    }
-    noise(.05,.06,6500);
-    bgmBeat++;
-  },220);
+if(bgmTimer) return;
+bgmBeat=0;
+bgmTimer=setInterval(()=>{
+if(!musicOn) return;
+const s=bgmBeat%32, ci=Math.floor(s/8)%BGM_PROG.length;
+if(s%2===0) tone(BGM_BASS[BGM_PROG[ci][0]],‘triangle’,.28,.055);
+if([0,3,6,9,12,15,18,21,24,27].includes(s)){
+const ni=BGM_PROG[ci][Math.floor(Math.random()*BGM_PROG[ci].length)];
+tone(BGM_SCALE[ni],‘sine’,.22,.038);
+}
+noise(.05,.055,6500);
+bgmBeat++;
+}, 220);
 }
 function stopBGM(){ if(bgmTimer){clearInterval(bgmTimer);bgmTimer=null;} }
 function toggleMusic(){
-  musicOn=!musicOn;
-  const b=document.getElementById('btn-music');
-  if(musicOn){startBGM();if(b)b.textContent='🎵';showToast('🎵 音樂開啟');}
-  else{stopBGM();if(b)b.textContent='🔇';showToast('🔇 音樂關閉');}
-  SFX.tap();
+musicOn=!musicOn;
+if(musicOn) startBGM(); else stopBGM();
+return musicOn;
 }
 
-// ══════════════ GAME DATA ══════════════
-const CITIES={
-  taipei:   {name:'台北',desc:'首都繁華商圈，人潮最多',traffic:'極高',avgPrice:45,badge:'🔥 熱門',passive:1200},
-  newtaipei:{name:'新北',desc:'雙北通勤族，固定早餐客',traffic:'高',  avgPrice:38,badge:'👥 穩定',passive:1000},
-  taoyuan:  {name:'桃園',desc:'航空城，多元族群',       traffic:'中高',avgPrice:40,badge:'✈️ 新興',passive:900},
-  hsinchu:  {name:'新竹',desc:'科技人，消費力強',       traffic:'中',  avgPrice:50,badge:'💻 科技',passive:950},
-  taichung: {name:'台中',desc:'宜居城市，慢活族多',     traffic:'高',  avgPrice:42,badge:'🌸 宜居',passive:1100},
-  tainan:   {name:'台南',desc:'古都美食激戰區',         traffic:'中高',avgPrice:35,badge:'🏛️ 古都',passive:1000},
-  kaohsiung:{name:'高雄',desc:'南部最大商圈',           traffic:'高',  avgPrice:40,badge:'🏙️ 南部',passive:1050},
-  hualien:  {name:'花蓮',desc:'觀光勝地，旺季超強',     traffic:'中',  avgPrice:45,badge:'🏔️ 觀光',passive:800},
-};
-const CITY_SVG_POS={
-  taipei:   {cx:205,cy:88}, newtaipei:{cx:192,cy:116}, taoyuan:{cx:172,cy:138},
-  hsinchu:  {cx:160,cy:167},taichung: {cx:168,cy:256},  tainan: {cx:171,cy:362},
-  kaohsiung:{cx:184,cy:406},hualien:  {cx:256,cy:242},
-};
-const CITY_LABELS={
-  taipei:'台北', newtaipei:'新北', taoyuan:'桃園', hsinchu:'新竹',
-  taichung:'台中', tainan:'台南', kaohsiung:'高雄', hualien:'花蓮'
-};
-
-// Shop items (for setup & purchase)
-const FLOOR_ITEMS={
-  // Free starter items
-  cashier: {name:'收銀台',emoji:'💰',free:true, required:true, desc:'必要',       category:'essential'},
-  stove:   {name:'瓦斯爐',emoji:'🍳',free:true, required:true, desc:'必要',       category:'essential'},
-  table1:  {name:'餐桌',  emoji:'🪑',free:true, required:true, desc:'必要(需≥1)', category:'table',     max:6},
-  counter: {name:'工作台',emoji:'🔪',free:true, required:false,desc:'建議放置',   category:'prep'},
-  // Purchasable
-  table2:  {name:'大桌',  emoji:'🍽️',free:false,cost:300, desc:'容量+2',category:'table',    max:4},
-  fridge:  {name:'冰箱',  emoji:'🧊',free:false,cost:800, desc:'速度+15%',category:'equip'},
-  display: {name:'展示架',emoji:'🧁',free:false,cost:500, desc:'平均客單+$5',category:'equip'},
-  speaker: {name:'音響',  emoji:'🎵',free:false,cost:400, desc:'滿意度+10%',category:'equip'},
-  microwave:{name:'微波爐',emoji:'📦',free:false,cost:600,desc:'料理選項+2', category:'equip'},
-  sign:    {name:'招牌燈',emoji:'✨',free:false,cost:700, desc:'客流+15%',   category:'deco'},
-  plant:   {name:'盆栽',  emoji:'🌿',free:false,cost:200, desc:'評分+0.2',   category:'deco'},
-  tv:      {name:'電視',  emoji:'📺',free:false,cost:500, desc:'等待耐心+5秒',category:'deco'},
-};
-const FLOOR_COLS=6, FLOOR_ROWS=5;
-
-// Menu
-const MENU=[
-  {id:'egg',    emoji:'🍳',name:'煎蛋',  price:25,time:3, xp:5 },
-  {id:'toast',  emoji:'🍞',name:'吐司',  price:30,time:4, xp:6 },
-  {id:'bacon',  emoji:'🥓',name:'培根',  price:35,time:5, xp:8 },
-  {id:'coffee', emoji:'☕',name:'咖啡',  price:40,time:3, xp:7 },
-  {id:'sandwich',emoji:'🥪',name:'三明治',price:55,time:8,xp:12},
-  {id:'pancake',emoji:'🥞',name:'鬆餅',  price:65,time:10,xp:15},
-  {id:'rice',   emoji:'🍱',name:'飯糰',  price:30,time:4, xp:7 },
-  {id:'waffle', emoji:'🧇',name:'格子鬆餅',price:70,time:12,xp:18},
-  {id:'soy',    emoji:'🥛',name:'豆漿',  price:20,time:2, xp:4 },
-  {id:'noodle', emoji:'🍜',name:'湯麵',  price:60,time:9, xp:14},
-  {id:'dumpling',emoji:'🥟',name:'水餃', price:45,time:7, xp:10},
-  {id:'muffin', emoji:'🧁',name:'鬆糕',  price:50,time:8, xp:11},
-];
-
-// Staff catalog
-const STAFF_CATALOG=[
-  {id:'helper1', name:'工讀生小花', emoji:'👩‍🍳',skill:'basic',
-   speed:0.05,  satisfaction:0.05, autoServe:false,
-   salary:200,  desc:'速度+5% 滿意度+5%',     badge:'🟢 入門'},
-  {id:'helper2', name:'廚師助理阿豪',emoji:'👨‍🍳',skill:'inter',
-   speed:0.12,  satisfaction:0.08, autoServe:false,
-   salary:450,  desc:'速度+12% 滿意度+8%',    badge:'🔵 中級'},
-  {id:'server1', name:'外場服務生小玲',emoji:'🧑‍💼',skill:'server',
-   speed:0,     satisfaction:0.2,  autoServe:true, autoInterval:15,
-   salary:350,  desc:'自動服務 滿意度+20%',   badge:'🟡 服務'},
-  {id:'chef1',   name:'正職廚師老陳',emoji:'👴',skill:'senior',
-   speed:0.25,  satisfaction:0.1,  autoServe:false,
-   salary:900,  desc:'速度+25% 滿意度+10%',   badge:'🔴 資深'},
-  {id:'manager', name:'店長王姐',   emoji:'👩‍💼',skill:'manager',
-   speed:0.1,   satisfaction:0.25, autoServe:true, autoInterval:10,
-   salary:1500, desc:'全能加成 自動送餐超快', badge:'🟣 店長'},
-];
-
-// Branch expansion (conditions: % of day revenue target achieved N days)
-const BRANCH_EXPAND=[
-  {cityId:'newtaipei', name:'新北', cost:8000,  dayRevTarget:2000, daysNeeded:3, passive:1000},
-  {cityId:'taoyuan',   name:'桃園', cost:10000, dayRevTarget:2500, daysNeeded:3, passive:900 },
-  {cityId:'hsinchu',   name:'新竹', cost:12000, dayRevTarget:3000, daysNeeded:4, passive:950 },
-  {cityId:'taichung',  name:'台中', cost:18000, dayRevTarget:4000, daysNeeded:5, passive:1100},
-  {cityId:'tainan',    name:'台南', cost:22000, dayRevTarget:5000, daysNeeded:5, passive:1000},
-  {cityId:'kaohsiung', name:'高雄', cost:25000, dayRevTarget:6000, daysNeeded:6, passive:1050},
-  {cityId:'hualien',   name:'花蓮', cost:15000, dayRevTarget:3500, daysNeeded:4, passive:800 },
-];
-// How much % of target must be reached each day to unlock expansion
-const BRANCH_PCT_THRESHOLD = 0.8; // 80%
-
-const TITLES=[
-  {level:1, title:'初學廚師',min:0},
-  {level:2, title:'小廚師',  min:500},
-  {level:3, title:'實習老闆',min:1500},
-  {level:4, title:'小老闆',  min:3000},
-  {level:5, title:'連鎖新手',min:6000},
-  {level:6, title:'展店達人',min:12000},
-  {level:7, title:'地區霸主',min:25000},
-  {level:8, title:'全台知名',min:50000},
-  {level:9, title:'早餐大王',min:100000},
-  {level:10,title:'早餐帝國',min:200000},
-];
-const ACHIEVEMENTS=[
-  {id:'first_cook', name:'初次下廚',  desc:'製作第一道料理', icon:'🍳',cond:s=>s.totalCooked>=1},
-  {id:'earn_1k',    name:'小有積蓄',  desc:'累積$1,000',    icon:'💰',cond:s=>s.totalIncome>=1000},
-  {id:'earn_10k',   name:'萬元富翁',  desc:'累積$10,000',   icon:'💵',cond:s=>s.totalIncome>=10000},
-  {id:'earn_50k',   name:'五萬存款',  desc:'累積$50,000',   icon:'🏦',cond:s=>s.totalIncome>=50000},
-  {id:'branch_2',   name:'二店開張',  desc:'開立第2間分店', icon:'🏪',cond:s=>s.branches.length>=2},
-  {id:'branch_all', name:'台灣連鎖夢',desc:'開立全台分店',  icon:'🇹🇼',cond:s=>s.branches.length>=8},
-  {id:'staff_1',    name:'初次聘人',  desc:'聘用第一位員工',icon:'👩‍🍳',cond:s=>s.hiredStaff.length>=1},
-  {id:'staff_5',    name:'小團隊',    desc:'同時有5位員工',  icon:'👥',cond:s=>s.hiredStaff.length>=5},
-  {id:'cook_100',   name:'百道料理',  desc:'製作100道',     icon:'🏆',cond:s=>s.totalCooked>=100},
-  {id:'day_10',     name:'十日堅持',  desc:'撐過10天',      icon:'📅',cond:s=>s.dayCount>=10},
-];
-
-// ══════════════ STATE ══════════════
-const DAY_DURATION_MS = 30 * 60 * 1000; // 30 minutes real = 1 game day
-let state = {
-  user:null, char:null, charName:'', money:500,
-  totalIncome:0, totalCooked:0,
-  level:1, xp:0, rating:4.0,
-  branches:[], // [{cityId, shopName, layout, dayRevHistory:[]}]
-  activeBranchIdx:0,
-  hiredStaff:[], // [{staffId, assignedBranch}]
-  achievements:[],
-  combo:0, bestCombo:0,
-  dayCount:1,
-  dayRevenue:0,    // current day revenue
-  dayGoal:1500,    // current day target
-  daysMetGoal:0,   // consecutive/cumulative days meeting goal
-  branchProgress:{}, // cityId -> daysMetGoal count
-  purchasedItems:[], // floor item ids bought
-};
-// runtime
-let pendingChar=null, pendingCityId=null, pendingLayout=null;
-let activeOrders=[], orderIdCtr=0;
-let dayTimerInterval=null, dayRemaining=0;
-let autoServeIntervals=[];
-let customerLoopStarted=false, autoIncomeStarted=false;
-let toastTimer=null, selectedExpandCity=null;
-let selectedCell=null;
-
-// ══════════════ UTILS ══════════════
-function genId(){ return Math.random().toString(36).substr(2,8).toUpperCase(); }
-function saveState(){
-  if(!state.user) return;
-  try{ localStorage.setItem('bk_save_'+state.user.id, JSON.stringify(state)); }catch(e){}
-}
-function loadState(uid){
-  try{
-    const raw=localStorage.getItem('bk_save_'+uid);
-    if(!raw) return false;
-    const s=JSON.parse(raw);
-    if(!Array.isArray(s.branches))     s.branches=[];
-    if(!Array.isArray(s.hiredStaff))   s.hiredStaff=[];
-    if(!Array.isArray(s.achievements)) s.achievements=[];
-    if(!s.branchProgress) s.branchProgress={};
-    Object.assign(state,s);
-    return true;
-  }catch(e){ return false; }
-}
-function setText(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
-function setW(id,v){const e=document.getElementById(id);if(e)e.style.width=v;}
-function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-let _toastQ=[];
-function showToast(msg,dur=2000){
-  const t=document.getElementById('toast'); if(!t) return;
-  if(toastTimer) clearTimeout(toastTimer);
-  t.textContent=msg; t.classList.add('show');
-  toastTimer=setTimeout(()=>{t.classList.remove('show');toastTimer=null;},dur);
-}
-function showCookAnim(emoji){
-  const el=document.getElementById('cook-anim'); if(!el) return;
-  el.textContent=emoji; el.style.display='block';
-  el.style.animation='none'; void el.offsetWidth;
-  el.style.animation='cookPop .6s ease forwards';
-  setTimeout(()=>{el.style.display='none';},650);
-}
-function showCombo(n){
-  const el=document.getElementById('combo-flash'); if(!el) return;
-  el.textContent=`🔥 COMBO x${n}!`; el.style.display='block';
-  el.style.animation='none'; void el.offsetWidth;
-  el.style.animation='comboAnim .8s ease forwards';
-  setTimeout(()=>{el.style.display='none';},900);
-}
-function showScreen(id){
-  SFX.tap();
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  const sc=document.getElementById(id); if(sc) sc.classList.add('active');
-  if(id==='screen-game')       refreshGameUI();
-  if(id==='screen-map-expand') refreshExpandMap();
-  if(id==='screen-friends')    refreshFriendsUI();
-  if(id==='screen-profile')    refreshProfileUI();
-}
-function getTitle(inc){ let t=TITLES[0]; for(const x of TITLES){ if(inc>=x.min) t=x; } return t; }
-function getCurrentBranch(){ return state.branches[state.activeBranchIdx] || state.branches[0]; }
-
-// ══════════════ AUTH ══════════════
-function switchTab(tab){
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-  document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`)?.classList.add('active');
-  document.getElementById('tab-'+tab)?.classList.add('active');
-  SFX.tap();
-}
-function doLogin(){
-  getCtx();
-  const email=(document.getElementById('li-email')?.value.trim())||'demo@demo.com';
-  let users={}; try{users=JSON.parse(localStorage.getItem('bk_users')||'{}');}catch(e){}
-  let user=Object.values(users).find(u=>u.email===email);
-  if(!user){ user={id:genId(),email,name:email.split('@')[0]}; users[user.id]=user; localStorage.setItem('bk_users',JSON.stringify(users)); }
-  state.user=user; localStorage.setItem('bk_lastuser',JSON.stringify(user));
-  if(loadState(user.id)&&state.branches.length>0){ resumeGame(); }
-  else{ showScreen('screen-char'); }
-}
-function doRegister(){
-  getCtx();
-  const name=document.getElementById('rg-name')?.value.trim();
-  const email=document.getElementById('rg-email')?.value.trim();
-  const pass=document.getElementById('rg-pass')?.value;
-  if(!name||!email||!pass){showToast('⚠️ 請填寫所有欄位');return;}
-  if(pass.length<6){showToast('⚠️ 密碼至少6字元');return;}
-  if(!email.includes('@')){showToast('⚠️ 請輸入正確信箱');return;}
-  let users={}; try{users=JSON.parse(localStorage.getItem('bk_users')||'{}');}catch(e){}
-  if(Object.values(users).find(u=>u.email===email)){showToast('⚠️ 此信箱已被使用');return;}
-  const user={id:genId(),email,name};
-  users[user.id]=user; localStorage.setItem('bk_users',JSON.stringify(users));
-  localStorage.setItem('bk_lastuser',JSON.stringify(user));
-  state.user=user; showToast('✅ 帳號創建成功！'); showScreen('screen-char');
-}
-function doFBLogin(){
-  getCtx();
-  let fbId=localStorage.getItem('bk_fb_id'); if(!fbId){fbId='FB'+genId();localStorage.setItem('bk_fb_id',fbId);}
-  const u={id:fbId,email:'fb_'+fbId+'@fb.com',name:'Facebook用戶'};
-  let users={}; try{users=JSON.parse(localStorage.getItem('bk_users')||'{}');}catch(e){}
-  users[fbId]=u; localStorage.setItem('bk_users',JSON.stringify(users));
-  localStorage.setItem('bk_lastuser',JSON.stringify(u));
-  state.user=u;
-  if(loadState(fbId)&&state.branches.length>0){ resumeGame(); }
-  else{ showScreen('screen-char'); }
-  showToast('✅ Facebook 登入！');
-}
-function doLogout(){
-  saveState(); stopAllTimers(); localStorage.removeItem('bk_lastuser');
-  state={user:null,char:null,charName:'',money:500,totalIncome:0,totalCooked:0,
-    level:1,xp:0,rating:4.0,branches:[],activeBranchIdx:0,hiredStaff:[],achievements:[],
-    combo:0,bestCombo:0,dayCount:1,dayRevenue:0,dayGoal:1500,daysMetGoal:0,
-    branchProgress:{},purchasedItems:[]};
-  showToast('👋 已登出'); showScreen('screen-login');
+return { getCtx, resume, SFX, startBGM, stopBGM, toggleMusic, get musicOn(){ return musicOn; } };
+})();
+/* ═══════════════════════════════════
+PARTICLES.JS — Canvas Particle System
+═══════════════════════════════════ */
+class ParticleSystem {
+constructor(scene) {
+this.scene = scene;
+this.particles = [];
 }
 
-// ══════════════ CHARACTER SELECT ══════════════
-function selectChar(type){
-  pendingChar=type; SFX.tap();
-  document.querySelectorAll('.char-card').forEach(c=>c.classList.remove('selected'));
-  document.getElementById('char-'+type)?.classList.add('selected');
-  const r=document.getElementById('char-name-row'); if(r) r.style.display='flex';
-  const ni=document.getElementById('char-name-input'); if(ni) ni.value=type==='boy'?'小明':'小美';
-}
-function confirmChar(){
-  if(!pendingChar){showToast('⚠️ 請先選擇角色');return;}
-  const ni=document.getElementById('char-name-input');
-  const name=(ni?.value.trim())||(pendingChar==='boy'?'小明':'小美');
-  state.char=pendingChar; state.charName=name;
-  SFX.complete(); showScreen('screen-pick-location');
-}
+// ── Emit particles ──
+emit(x, y, config = {}) {
+const {
+count    = 8,
+speed    = 120,
+spread   = Math.PI * 2,
+angle    = -Math.PI / 2,
+gravity  = 200,
+lifetime = 0.8,
+colors   = [0xfbbf24, 0xf97316, 0xffffff],
+size     = 6,
+type     = ‘circle’, // ‘circle’ | ‘star’ | ‘spark’ | ‘smoke’
+} = config;
 
-// ══════════════ PICK LOCATION ══════════════
-function pickCity(cityId){
-  SFX.tap(); pendingCityId=cityId;
-  const city=CITIES[cityId]; if(!city) return;
-  setText('lp-city', city.name);
-  setText('lp-badge', city.badge);
-  setText('lp-desc',  city.desc);
-  setText('lp-traffic', city.traffic);
-  setText('lp-rent',  '免費');
-  setText('lp-price', '$'+city.avgPrice);
-  const pop=document.getElementById('location-popup'); if(pop) pop.style.display='block';
-}
-function closeLPopup(){ const p=document.getElementById('location-popup'); if(p) p.style.display='none'; }
-function confirmLocation(){
-  if(!pendingCityId){showToast('⚠️ 請選擇城市');return;}
-  closeLPopup();
-  initSetupScreen(pendingCityId);
-  showScreen('screen-setup');
-}
-
-// ══════════════ SHOP SETUP ══════════════
-function initSetupScreen(cityId){
-  const floor=document.getElementById('shop-floor'); if(!floor) return;
-  floor.innerHTML='';
-  // create cells
-  for(let i=0;i<FLOOR_COLS*FLOOR_ROWS;i++){
-    const cell=document.createElement('div');
-    cell.className='floor-cell'; cell.dataset.idx=i;
-    cell.onclick=()=>openCellPicker(i);
-    floor.appendChild(cell);
-  }
-  pendingLayout=new Array(FLOOR_COLS*FLOOR_ROWS).fill(null);
-  // show free items toolbar
-  buildFreeItemsToolbar();
-  updateSetupSummary();
-}
-let _pickingCellIdx=null;
-function openCellPicker(idx){
-  SFX.tap();
-  _pickingCellIdx=idx;
-  const existing=pendingLayout[idx];
-  // build picker list
-  const cpItems=document.getElementById('cp-items'); if(!cpItems) return;
-  cpItems.innerHTML='';
-  // if cell has item, add "remove" option
-  if(existing){
-    const rem=document.createElement('div');
-    rem.className='cp-item';
-    rem.innerHTML=`<span class="cpi-emoji">🗑️</span><div class="cpi-name">移除</div><div class="cpi-cost">免費</div>`;
-    rem.onclick=()=>{ placeItem(idx,null); closeCellPicker(); };
-    cpItems.appendChild(rem);
-  }
-  Object.entries(FLOOR_ITEMS).forEach(([key,item])=>{
-    const alreadyPlaced=pendingLayout.filter(x=>x===key).length;
-    const maxAllowed=item.max||1;
-    // count placed across all cells
-    const div=document.createElement('div');
-    div.className='cp-item'+((!item.free&&!state.purchasedItems.includes(key)&&!isFreeFn(key))?'' :'');
-    const canPlace= item.free || state.purchasedItems.includes(key);
-    const atMax = alreadyPlaced>=maxAllowed;
-    if(!canPlace||atMax) div.classList.add('disabled');
-    div.innerHTML=`
-      <span class="cpi-emoji">${item.emoji}</span>
-      <div class="cpi-name">${item.name}</div>
-      <div class="cpi-cost">${item.free?'免費':canPlace?'已購買':'$'+item.cost}</div>`;
-    if(canPlace&&!atMax) div.onclick=()=>{ placeItem(idx,key); closeCellPicker(); };
-    cpItems.appendChild(div);
-  });
-  document.getElementById('cell-picker').style.display='flex';
-}
-function isFreeFn(key){ return FLOOR_ITEMS[key]?.free; }
-function closeCellPicker(){ document.getElementById('cell-picker').style.display='none'; }
-function placeItem(idx,key){
-  pendingLayout[idx]=key;
-  SFX.place();
-  const cells=document.querySelectorAll('.floor-cell');
-  const cell=cells[idx]; if(!cell) return;
-  const item=key?FLOOR_ITEMS[key]:null;
-  cell.innerHTML=item?`${item.emoji}<span class="cell-label">${item.name}</span>`:'';
-  cell.classList.toggle('has-item',!!key);
-  updateSetupSummary();
-}
-function buildFreeItemsToolbar(){
-  const fi=document.getElementById('free-items'); if(!fi) return;
-  fi.innerHTML='';
-  Object.entries(FLOOR_ITEMS).filter(([,v])=>v.free).forEach(([key,item])=>{
-    const d=document.createElement('div'); d.className='tool-item';
-    d.innerHTML=`<span class="ti-emoji">${item.emoji}</span><div class="ti-name">${item.name}</div>`;
-    d.onclick=()=>showToast(`點擊格子放置 ${item.emoji} ${item.name}`);
-    fi.appendChild(d);
+```
+for (let i = 0; i < count; i++) {
+  const a = angle + (Math.random() - 0.5) * spread;
+  const spd = speed * (0.5 + Math.random() * 0.5);
+  this.particles.push({
+    x, y,
+    vx: Math.cos(a) * spd,
+    vy: Math.sin(a) * spd,
+    ax: 0,
+    ay: gravity,
+    life: lifetime,
+    maxLife: lifetime,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    size: size * (0.5 + Math.random() * 0.5),
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 8,
+    type,
+    alpha: 1,
   });
 }
-function updateSetupSummary(){
-  const placed=pendingLayout.filter(x=>x!==null);
-  const hasCashier=placed.includes('cashier');
-  const hasStove=placed.includes('stove');
-  const hasTable=placed.some(x=>x==='table1'||x==='table2');
-  const ok=hasCashier&&hasStove&&hasTable;
-  const hint=document.getElementById('setup-hint');
-  const btn=document.getElementById('btn-start-biz');
-  let missing=[];
-  if(!hasCashier) missing.push('收銀台💰');
-  if(!hasStove)   missing.push('瓦斯爐🍳');
-  if(!hasTable)   missing.push('餐桌🪑');
-  if(hint) hint.textContent= ok ? '✅ 設備齊全！可以開始營業了！' : `還需要：${missing.join('、')}`;
-  if(btn)  btn.disabled=!ok;
-  // placed summary
-  const ps=document.getElementById('placed-summary'); if(!ps) return;
-  const counts={};
-  placed.forEach(k=>{ if(k) counts[k]=(counts[k]||0)+1; });
-  ps.innerHTML='';
-  Object.entries(counts).forEach(([k,n])=>{
-    const it=FLOOR_ITEMS[k]; if(!it) return;
-    const d=document.createElement('div'); d.className='placed-chip';
-    d.textContent=`${it.emoji} ${it.name}${n>1?' x'+n:''}`;
-    ps.appendChild(d);
-  });
-}
-function startBusiness(){
-  if(!pendingCityId||!pendingLayout){showToast('⚠️ 請先選擇城市並佈置店面');return;}
-  const city=CITIES[pendingCityId];
-  const branch={
-    cityId:pendingCityId,
-    cityName:city.name,
-    shopName:state.charName+'的'+city.name+'早餐店',
-    layout:[...pendingLayout],
-    dayRevHistory:[],
-    passive:city.passive,
-  };
-  state.branches=[branch];
-  state.activeBranchIdx=0;
-  state.char=pendingChar||state.char;
-  state.charName=state.charName||'小老闆';
-  state.dayGoal=computeDayGoal(branch);
-  state.dayRevenue=0;
-  state.dayCount=1;
-  saveState();
-  initGame();
-}
-function computeDayGoal(branch){
-  // base goal based on city traffic
-  const city=CITIES[branch.cityId];
-  const base=city?city.avgPrice*50:1500; // roughly avgPrice * 50 orders
-  // bonus per branch count
-  return Math.floor(base*(1+state.branches.length*0.1));
-}
-function resumeGame(){
-  state.dayRevenue=state.dayRevenue||0;
-  // Fix old saves: if layout missing/empty give default
-  state.branches.forEach(br=>{
-    if(!Array.isArray(br.layout)||br.layout.filter(x=>x!==null).length===0){
-      const dl=new Array(30).fill(null);
-      dl[0]='cashier'; dl[1]='stove'; dl[6]='table1'; dl[7]='table1'; dl[12]='counter';
-      br.layout=dl;
-    }
-  });
-  initGame();
+```
+
 }
 
-// ══════════════ GAME INIT ══════════════
-function initGame(){
-  buildMenuGrid();
-  buildBuyPanel();
-  buildStaffPanel();
-  refreshGameUI();
-  showScreen('screen-game');   // show first so DOM has dimensions
-  startBGM();
-  // render interior AFTER screen is visible so offsetHeight works
-  requestAnimationFrame(()=>{
-    setTimeout(()=>{
-      renderInterior();
-      const br=getCurrentBranch();
-      showToast('🎉 '+(br?.shopName||state.charName+'的早餐店')+'開張！');
-    }, 80);
-  });
-  startDayTimer();
-  startOrderSpawner();
-  if(!customerLoopStarted){ customerLoopStarted=true; setInterval(updateCustomerQueue,2500); }
-  if(!autoIncomeStarted){ autoIncomeStarted=true; startAutoIncome(); }
-  startAutoServeStaff();
-}
-function stopAllTimers(){
-  if(dayTimerInterval){ clearInterval(dayTimerInterval); dayTimerInterval=null; }
-  activeOrders.forEach(o=>clearInterval(o.timerInterval));
-  activeOrders=[];
-  autoServeIntervals.forEach(clearInterval);
-  autoServeIntervals=[];
-}
-
-// ══════════════ DAY TIMER (30min real = 1 day) ══════════════
-function startDayTimer(){
-  if(dayTimerInterval) clearInterval(dayTimerInterval);
-  dayRemaining=DAY_DURATION_MS/1000; // seconds
-  updateDayBar();
-  dayTimerInterval=setInterval(()=>{
-    dayRemaining--;
-    updateDayBar();
-    if(dayRemaining<=0){ clearInterval(dayTimerInterval); dayTimerInterval=null; endDay(); }
-  },1000);
-}
-function updateDayBar(){
-  const total=DAY_DURATION_MS/1000;
-  const pct=((total-dayRemaining)/total)*100;
-  setW('day-fill',pct+'%');
-  const m=Math.floor(dayRemaining/60), s=dayRemaining%60;
-  setText('day-time',(m<10?'0':'')+m+':'+(s<10?'0':'')+s);
-  setText('day-income','$'+state.dayRevenue.toLocaleString());
-  setText('day-goal','$'+state.dayGoal.toLocaleString());
-}
-function endDay(){
-  SFX.dayEnd(); stopAllTimers();
-  activeOrders.forEach(o=>{ clearInterval(o.timerInterval); o.el?.remove(); });
-  activeOrders=[];
-  const metGoal=state.dayRevenue>=state.dayGoal;
-  const pct=state.dayGoal>0?Math.min(100,Math.floor(state.dayRevenue/state.dayGoal*100)):100;
-  // record
-  const br=getCurrentBranch();
-  if(br){ if(!br.dayRevHistory) br.dayRevHistory=[]; br.dayRevHistory.push(state.dayRevenue); }
-  // count days met goal for branch expansion
-  if(metGoal){
-    state.daysMetGoal=(state.daysMetGoal||0)+1;
-    // update branchProgress for each potential expand city
-    BRANCH_EXPAND.forEach(e=>{
-      if(!state.branches.find(b=>b.cityId===e.cityId)){
-        if(state.dayRevenue>=e.dayRevTarget*BRANCH_PCT_THRESHOLD){
-          state.branchProgress[e.cityId]=(state.branchProgress[e.cityId]||0)+1;
-        }
-      }
-    });
-  }
-  // pay staff salary
-  let totalSalary=0;
-  state.hiredStaff.forEach(s=>{
-    const cat=STAFF_CATALOG.find(c=>c.id===s.staffId);
-    if(cat) totalSalary+=cat.salary;
-  });
-  state.money=Math.max(0,state.money-totalSalary);
-
-  const modal=document.getElementById('day-end-modal'); if(!modal) return;
-  document.getElementById('dem-emoji').textContent=metGoal?'🎊':'😓';
-  document.getElementById('dem-title').textContent=`第 ${state.dayCount} 天結束`;
-  document.getElementById('dem-body').innerHTML=`
-    今日營收：<strong>$${state.dayRevenue.toLocaleString()}</strong><br>
-    今日目標：<strong>$${state.dayGoal.toLocaleString()}</strong><br>
-    達成率：<strong style="color:${metGoal?'#34d399':'#f87171'}">${pct}%</strong><br>
-    ${totalSalary>0?`員工薪資：<strong>-$${totalSalary}</strong><br>`:''}
-    ${metGoal?'<br>🎉 目標達成！可能解鎖展店資格！':'<br>💪 繼續加油！明天會更好！'}
-  `;
-  const btn=document.getElementById('dem-btn');
-  if(btn) btn.textContent='前往第 '+(state.dayCount+1)+' 天 →';
-  modal.style.display='flex';
-  saveState();
-  checkAchievements();
-}
-function closeDayEnd(){
-  document.getElementById('day-end-modal').style.display='none';
-  state.dayCount++;
-  state.dayRevenue=0;
-  const br=getCurrentBranch();
-  if(br) state.dayGoal=computeDayGoal(br);
-  saveState();
-  // New day modal
-  const nd=document.getElementById('new-day-modal'); if(!nd) return;
-  setText('ndm-day',state.dayCount);
-  document.getElementById('ndm-body').textContent='新的一天開始了！繼續為夢想努力！';
-  nd.style.display='flex';
-}
-function closeNewDay(){
-  document.getElementById('new-day-modal').style.display='none';
-  SFX.dayStart();
-  startDayTimer();
-  startOrderSpawner();
-  startAutoServeStaff();
-  refreshGameUI();
-}
-
-// ══════════════ INTERIOR RENDER ══════════════
-function renderInterior(){
-  const view=document.getElementById('interior-view'); if(!view) return;
-  view.innerHTML='';
-
-  // ── Sky decorations ──
-  const sun=document.createElement('div'); sun.className='sky-sun'; sun.textContent='☀️'; view.appendChild(sun);
-  const cl1=document.createElement('div'); cl1.className='sky-cloud'; cl1.textContent='☁️';
-  cl1.style.cssText='top:8px;left:-40px;animation-duration:18s'; view.appendChild(cl1);
-  const cl2=document.createElement('div'); cl2.className='sky-cloud'; cl2.textContent='☁️';
-  cl2.style.cssText='top:22px;left:-80px;font-size:.9rem;opacity:.5;animation-duration:28s'; view.appendChild(cl2);
-
-  // ── Shop name banner ──
-  const banner=document.createElement('div'); banner.className='shop-name-banner';
-  banner.textContent=getCurrentBranch()?.shopName||(state.charName+'的早餐店');
-  view.appendChild(banner);
-
-  // ── Shop building (always shown) ──
-  const building=document.createElement('div');
-  building.style.cssText=`
-    position:absolute;bottom:0;left:50%;transform:translateX(-50%);
-    width:min(340px,95%);
-    background:linear-gradient(180deg,#c94a20,#8c2e10);
-    border-radius:10px 10px 0 0;
-    box-shadow:0 -4px 16px rgba(0,0,0,.45);
-    overflow:hidden;
-    display:flex;flex-direction:column;
-  `;
-
-  const br=getCurrentBranch();
-  const layout=br?.layout||[];
-
-  // If layout is empty, show a simple default shop face
-  if(layout.filter(x=>x!==null).length===0){
-    building.style.height='140px';
-    building.innerHTML=`
-      <div style="text-align:center;padding:12px 8px 0;font-size:.7rem;color:rgba(255,255,255,.6)">店面佈置中…</div>
-      <div style="display:flex;justify-content:center;gap:8px;padding:8px;flex-wrap:wrap">
-        <span style="font-size:1.6rem">🍳</span>
-        <span style="font-size:1.6rem">💰</span>
-        <span style="font-size:1.6rem">🪑</span>
-        <span style="font-size:1.6rem">☕</span>
-      </div>
-      <div style="text-align:center;font-size:.65rem;color:rgba(255,255,255,.5);padding:4px">點「購買」頁面可新增設備</div>
-    `;
-    view.appendChild(building);
-    return;
-  }
-
-  // Build actual grid from layout
-  // Calculate cell size to fill building nicely
-  const viewH=view.offsetHeight||Math.floor(window.innerHeight*0.35)||200;
-  const buildingH=Math.min(Math.floor(viewH*0.75), 200);
-  const cellSize=Math.floor((buildingH-12)/FLOOR_ROWS);
-  building.style.height=buildingH+'px';
-
-  const ig=document.createElement('div');
-  ig.style.cssText=`
-    display:grid;
-    grid-template-columns:repeat(${FLOOR_COLS},1fr);
-    grid-template-rows:repeat(${FLOOR_ROWS},${cellSize}px);
-    gap:2px;padding:4px;flex:1;
-  `;
-
-  layout.forEach(key=>{
-    const cell=document.createElement('div');
-    cell.style.cssText='background:rgba(255,220,180,.1);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden';
-    if(key){
-      const it=FLOOR_ITEMS[key];
-      if(it){
-        const sz=Math.max(12,Math.min(20,cellSize-8));
-        cell.innerHTML=`<span style="font-size:${sz}px;line-height:1">${it.emoji}</span><span style="font-size:9px;color:rgba(255,255,255,.55);margin-top:1px;overflow:hidden;white-space:nowrap;max-width:100%;text-overflow:ellipsis;padding:0 2px">${it.name}</span>`;
-      }
-    }
-    ig.appendChild(cell);
-  });
-  building.appendChild(ig);
-  view.appendChild(building);
-}
-
-// ══════════════ ORDER SYSTEM ══════════════
-let orderSpawnTimer=null;
-function startOrderSpawner(){
-  if(orderSpawnTimer) clearInterval(orderSpawnTimer);
-  spawnOrder();
-  orderSpawnTimer=setInterval(()=>{ if(activeOrders.length<getMaxOrders()) spawnOrder(); },4000);
-}
-function getMaxOrders(){
-  const br=getCurrentBranch();
-  let base=3;
-  if(br?.layout){
-    const tables=br.layout.filter(x=>x==='table1'||x==='table2').length;
-    base=Math.min(6,2+tables);
-  }
-  return base;
-}
-function getOrderTimer(){
-  let t=20;
-  const br=getCurrentBranch();
-  if(br?.layout&&br.layout.includes('tv')) t+=5;
-  state.hiredStaff.forEach(s=>{ const c=STAFF_CATALOG.find(x=>x.id===s.staffId); if(c?.autoInterval) t+=2; });
-  return t;
-}
-function spawnOrder(){
-  if(!getCurrentBranch()) return;
-  const item=MENU[Math.floor(Math.random()*MENU.length)];
-  const custEmojis=['👨','👩','👴','👵','👦','👧','🧑','👱'];
-  const cust=custEmojis[Math.floor(Math.random()*custEmojis.length)];
-  const oid=++orderIdCtr, tmax=getOrderTimer();
-  const el=document.createElement('div'); el.className='order-card'; el.id='oc-'+oid;
-  el.innerHTML=`<div class="oc-cust">${cust}</div><div class="oc-emoji">${item.emoji}</div><div class="oc-name">${item.name}</div><div class="oc-price">+$${item.price}</div><div class="oc-timer"><div class="oc-timer-bar" id="otb-${oid}"></div></div>`;
-  const row=document.getElementById('orders-row'); if(!row) return;
-  row.appendChild(el);
-  requestAnimationFrame(()=>el.classList.add('oi'));
-  let rem=tmax;
-  const ti=setInterval(()=>{
-    rem--;
-    const pct=(rem/tmax)*100;
-    const bar=document.getElementById('otb-'+oid);
-    if(bar){ bar.style.width=pct+'%'; bar.style.background=pct>50?'#10b981':pct>25?'#f59e0b':'#ef4444'; }
-    if(rem<=5) el.classList.add('urgent');
-    if(rem<=0){ clearInterval(ti); expireOrder(oid); }
-  },1000);
-  activeOrders.push({id:oid,item,cust,timerInterval:ti,el,tmax,rem:tmax});
-  SFX.doorbell(); updateMenuWanted();
-}
-function expireOrder(oid){
-  const idx=activeOrders.findIndex(o=>o.id===oid); if(idx<0) return;
-  const o=activeOrders[idx]; clearInterval(o.timerInterval);
-  o.el.classList.add('oe'); setTimeout(()=>o.el.remove(),400);
-  activeOrders.splice(idx,1);
-  state.combo=0; state.rating=Math.max(1.0,state.rating-.1);
-  SFX.timeout(); showToast('😤 顧客等太久走了！',1600);
-  saveState(); refreshGameUI(); updateMenuWanted();
-}
-function fulfillOrder(itemId){
-  const idx=activeOrders.findIndex(o=>o.item.id===itemId); if(idx<0) return false;
-  const o=activeOrders[idx]; clearInterval(o.timerInterval);
-  const speedPct=o.rem/o.tmax, bonus=speedPct>0.6?Math.floor(o.item.price*.3):0;
-  const earned=o.item.price+bonus;
-  state.money+=earned; state.totalIncome+=earned; state.dayRevenue+=earned;
-  state.totalCooked++; state.xp+=o.item.xp;
-  state.combo=(state.combo||0)+1;
-  if(state.combo>state.bestCombo) state.bestCombo=state.combo;
-  o.el.classList.add('od'); setTimeout(()=>o.el.remove(),400);
-  activeOrders.splice(idx,1);
-  SFX.correct(); SFX.coin();
-  const msg=bonus>0?`${o.item.emoji} 快速送餐！+$${earned}（獎勵$${bonus}）`:`${o.item.emoji} ${o.item.name} 完成！+$${earned}`;
-  showToast(msg,1800); showCookAnim(o.item.emoji);
-  if(state.combo>=3) showCombo(state.combo);
-  // level
-  const nt=getTitle(state.totalIncome);
-  if(nt.level>state.level){ state.level=nt.level; SFX.levelUp(); setTimeout(()=>showToast(`🎊 升級！「${nt.title}」Lv.${nt.level}！`,3000),400); }
-  saveState(); refreshGameUI(); checkAchievements(); updateMenuWanted();
-  updateDayBar();
-  return true;
-}
-function updateMenuWanted(){
-  MENU.forEach(it=>{
-    const el=document.getElementById('mi-'+it.id); if(!el) return;
-    el.classList.toggle('wanted',activeOrders.some(o=>o.item.id===it.id));
-  });
-}
-function updateCustomerQueue(){
-  const q=document.getElementById('customer-queue'); if(!q) return;
-  const n=Math.min(8,1+activeOrders.length+Math.floor(Math.random()*2));
-  const emojis=['👨','👩','👴','👵','👦','👧','🧑','👱'];
-  q.innerHTML='';
-  for(let i=0;i<n;i++){
-    const s=document.createElement('span'); s.className='customer';
-    s.textContent=emojis[Math.floor(Math.random()*emojis.length)];
-    s.style.animationDelay=(i*.1)+'s'; q.appendChild(s);
-  }
-}
-
-// ══════════════ MENU ══════════════
-function buildMenuGrid(){
-  const g=document.getElementById('menu-grid'); if(!g) return;
-  g.innerHTML='';
-  MENU.forEach(item=>{
-    const d=document.createElement('div'); d.className='menu-item'; d.id='mi-'+item.id;
-    d.innerHTML=`<span class="me-emoji">${item.emoji}</span><div class="me-name">${item.name}</div><div class="me-price">$${item.price}</div><div class="me-time">${item.time}秒</div>`;
-    d.addEventListener('click',()=>cookItem(item));
-    g.appendChild(d);
-  });
-}
-function cookItem(item){
-  const el=document.getElementById('mi-'+item.id); if(!el||el.classList.contains('cooking')) return;
-  SFX.sizzle(); el.classList.add('cooking');
-  const ci=document.getElementById('cooking-items');
-  const ce=document.createElement('span'); ce.textContent=item.emoji; ce.style.animation='bob .3s ease infinite alternate';
-  if(ci) ci.appendChild(ce);
-  // speed bonuses
-  let spd=0;
-  state.hiredStaff.forEach(s=>{ const c=STAFF_CATALOG.find(x=>x.id===s.staffId); if(c) spd+=c.speed||0; });
-  const br=getCurrentBranch();
-  if(br?.layout?.includes('fridge')) spd+=.15;
-  const speed=Math.max(.2,1-spd);
-  const cookTime=item.time*1000*speed;
-  setTimeout(()=>{
-    if(ci?.contains(ce)) ci.removeChild(ce);
-    el.classList.remove('cooking');
-    const fulfilled=fulfillOrder(item.id);
-    if(!fulfilled){
-      const earned=Math.floor(item.price*.7);
-      state.money+=earned; state.totalIncome+=earned; state.dayRevenue+=earned;
-      state.totalCooked++; state.combo=0;
-      SFX.complete(); SFX.coin();
-      showToast(`${item.emoji} 零散販售 +$${earned}（無訂單）`,1800);
-      showCookAnim(item.emoji);
-      saveState(); refreshGameUI(); updateDayBar();
-    }
-  },cookTime);
-}
-
-// ══════════════ STAFF SYSTEM ══════════════
-function buildStaffPanel(){
-  const p=document.getElementById('staff-panel'); if(!p) return;
-  p.innerHTML='';
-  // Hired staff
-  if(state.hiredStaff.length>0){
-    const htitle=document.createElement('div'); htitle.className='buy-section-title'; htitle.textContent='✅ 在職員工'; p.appendChild(htitle);
-    state.hiredStaff.forEach((s,idx)=>{
-      const cat=STAFF_CATALOG.find(c=>c.id===s.staffId); if(!cat) return;
-      const d=document.createElement('div'); d.className='staff-item';
-      d.innerHTML=`
-        <div class="si-avatar">${cat.emoji}</div>
-        <div class="si-info">
-          <div class="si-name">${cat.name}</div>
-          <div class="si-skill">${cat.desc}</div>
-          <div class="si-salary">日薪 $${cat.salary} ${cat.badge}</div>
-        </div>
-        <div class="si-status working">工作中</div>
-        <button class="btn-fire" onclick="fireStaff(${idx})">解雇</button>`;
-      p.appendChild(d);
-    });
-  }
-  const title=document.createElement('div'); title.className='buy-section-title'; title.textContent='💼 應徵員工'; p.appendChild(title);
-  STAFF_CATALOG.forEach(cat=>{
-    const already=state.hiredStaff.some(s=>s.staffId===cat.id);
-    const canAfford=state.money>=cat.salary*2; // need 2 days salary upfront
-    const d=document.createElement('div'); d.className='staff-item';
-    d.innerHTML=`
-      <div class="si-avatar">${cat.emoji}</div>
-      <div class="si-info">
-        <div class="si-name">${cat.name}</div>
-        <div class="si-skill">${cat.desc}</div>
-        <div class="si-salary">日薪 $${cat.salary} ${cat.badge}</div>
-      </div>
-      <button class="btn-hire" ${already||!canAfford?'disabled':''} onclick="hireStaff('${cat.id}')">
-        ${already?'已聘':canAfford?'聘用':'錢不足'}
-      </button>`;
-    p.appendChild(d);
-  });
-}
-function hireStaff(staffId){
-  const cat=STAFF_CATALOG.find(c=>c.id===staffId); if(!cat) return;
-  if(state.hiredStaff.some(s=>s.staffId===staffId)){showToast('⚠️ 已聘用此員工');return;}
-  const deposit=cat.salary*2;
-  if(state.money<deposit){showToast(`💸 需要 $${deposit}（兩天薪資保證金）`);return;}
-  state.money-=deposit;
-  state.hiredStaff.push({staffId,assignedBranch:state.activeBranchIdx});
-  saveState(); buildStaffPanel(); refreshGameUI();
-  SFX.hire(); showToast(`✅ 已聘用 ${cat.name}！`);
-  checkAchievements(); startAutoServeStaff();
-}
-function fireStaff(idx){
-  const s=state.hiredStaff[idx]; if(!s) return;
-  const cat=STAFF_CATALOG.find(c=>c.id===s.staffId);
-  state.hiredStaff.splice(idx,1);
-  saveState(); buildStaffPanel(); refreshGameUI();
-  SFX.fire(); showToast(`👋 ${cat?.name||'員工'} 已離職`);
-  startAutoServeStaff(); // restart to remove their interval
-}
-function startAutoServeStaff(){
-  autoServeIntervals.forEach(clearInterval); autoServeIntervals=[];
-  state.hiredStaff.forEach(s=>{
-    const cat=STAFF_CATALOG.find(c=>c.id===s.staffId);
-    if(cat?.autoServe&&cat.autoInterval){
-      const iv=setInterval(()=>{
-        if(activeOrders.length>0){
-          const o=activeOrders[0];
-          fulfillOrder(o.item.id);
-        }
-      },cat.autoInterval*1000);
-      autoServeIntervals.push(iv);
-    }
-  });
-}
-
-// ══════════════ BUY PANEL ══════════════
-function buildBuyPanel(){
-  const p=document.getElementById('buy-panel'); if(!p) return;
-  p.innerHTML='';
-  const purchasable=Object.entries(FLOOR_ITEMS).filter(([,v])=>!v.free);
-  if(purchasable.length===0){ p.innerHTML='<div style="color:#6b7280;padding:12px;text-align:center">目前沒有可購買的設備</div>'; return; }
-  const t=document.createElement('div'); t.className='buy-section-title'; t.textContent='🛒 購買設備（放入店面）'; p.appendChild(t);
-  purchasable.forEach(([key,item])=>{
-    const owned=state.purchasedItems.includes(key);
-    const d=document.createElement('div'); d.className='buy-item';
-    d.innerHTML=`
-      <div class="bi-icon">${item.emoji}</div>
-      <div class="bi-info">
-        <div class="bi-name">${item.name}${owned?' ✅':''}</div>
-        <div class="bi-desc">${item.desc}</div>
-        <div class="bi-cost">${owned?'已購買':'$'+item.cost.toLocaleString()}</div>
-      </div>
-      <button class="btn-buy" ${owned?'disabled':''} onclick="buyEquipment('${key}')">
-        ${owned?'擁有':'購買'}
-      </button>`;
-    p.appendChild(d);
-  });
-}
-function buyEquipment(key){
-  if(state.purchasedItems.includes(key)){showToast('⚠️ 已購買');return;}
-  const it=FLOOR_ITEMS[key]; if(!it||it.free) return;
-  if(state.money<it.cost){showToast('💸 金錢不足！');return;}
-  state.money-=it.cost;
-  state.purchasedItems.push(key);
-  saveState(); buildBuyPanel(); refreshGameUI();
-  SFX.complete(); showToast(`✅ 已購買「${it.name}」！可到店面佈置頁放置。`);
-}
-
-// ══════════════ AUTO INCOME (branches) ══════════════
-function startAutoIncome(){
-  setInterval(()=>{
-    if(state.branches.length<=1) return;
-    let passive=0;
-    state.branches.slice(1).forEach(b=>{ const c=CITIES[b.cityId]; if(c) passive+=Math.floor(c.passive/120); });
-    if(passive>0){
-      state.money+=passive; state.totalIncome+=passive;
-      saveState(); refreshGameUI();
-      showToast(`💼 分店被動 +$${passive}`,1200);
-    }
-  },30000);
-}
-
-// ══════════════ GAME UI ══════════════
-function refreshGameUI(){
-  if(!state.char) return;
-  const av=state.char==='boy'?'👦':'👧', tt=getTitle(state.totalIncome);
-  setText('hud-avatar',av); setText('hud-name',state.charName);
-  setText('hud-lv',tt.level); setText('hud-title',tt.title);
-  setText('hud-money',state.money.toLocaleString());
-  setText('st-branches',state.branches.length); setText('st-sold',state.totalCooked);
-  setText('st-income','$'+state.totalIncome.toLocaleString());
-  setText('st-rating',(state.rating||4.0).toFixed(1));
-  setText('st-staff',state.hiredStaff.length); setText('st-combo',state.bestCombo);
-  // goal card
-  const pct=state.dayGoal>0?Math.min(100,Math.floor(state.dayRevenue/state.dayGoal*100)):100;
-  setText('gc-need','$'+state.dayGoal.toLocaleString());
-  setText('gc-earned','$'+state.dayRevenue.toLocaleString());
-  setW('gc-fill',pct+'%');
-  setText('gc-pct',pct+'%');
-  // branch button: check if any city qualifies
-  const canExpand=BRANCH_EXPAND.some(e=>{
-    if(state.branches.find(b=>b.cityId===e.cityId)) return false;
-    return (state.branchProgress[e.cityId]||0)>=e.daysNeeded;
-  });
-  const bb=document.getElementById('btn-open-branch'); if(bb) bb.disabled=!canExpand;
-  updateMenuWanted();
-}
-
-// ══════════════ PANEL SWITCH ══════════════
-function switchTab2(tab){
-  SFX.tap();
-  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab2-content').forEach(c=>c.classList.remove('active'));
-  document.querySelector(`.ptab[onclick="switchTab2('${tab}')"]`)?.classList.add('active');
-  document.getElementById('tab2-'+tab)?.classList.add('active');
-}
-
-// ══════════════ EXPAND MAP ══════════════
-function refreshExpandMap(){
-  setText('me-money',state.money.toLocaleString());
-  const g=document.getElementById('expand-cities'); if(!g) return;
-  g.innerHTML='';
-  Object.entries(CITY_SVG_POS).forEach(([cityId,pos])=>{
-    const owned=state.branches.find(b=>b.cityId===cityId);
-    const prog=state.branchProgress[cityId]||0;
-    const expandDef=BRANCH_EXPAND.find(e=>e.cityId===cityId);
-    const qualified=expandDef&&prog>=expandDef.daysNeeded;
-    const color=owned?'#f59e0b':qualified?'#10b981':'#6b7280';
-    const r=owned||qualified?12:10;
-    g.innerHTML+=`
-      <circle cx="${pos.cx}" cy="${pos.cy}" r="${r+4}" fill="transparent" onclick="selectExpandCity('${cityId}')" style="cursor:pointer"/>
-      <circle id="edot-${cityId}" cx="${pos.cx}" cy="${pos.cy}" r="${r}" fill="${color}" stroke="white" stroke-width="2" style="cursor:pointer" onclick="selectExpandCity('${cityId}')"/>
-      <text x="${pos.cx+(cityId==='tainan'||cityId==='kaohsiung'||cityId==='taichung'||cityId==='hsinchu'?-32:14)}" y="${pos.cy+4}" fill="${owned||qualified?'white':'#d1d5db'}" font-size="10" font-weight="${owned||qualified?'bold':'normal'}" pointer-events="none">${CITY_LABELS[cityId]}</text>
-      ${owned?`<text x="${pos.cx}" y="${pos.cy+1}" text-anchor="middle" font-size="8" fill="white" pointer-events="none">✓</text>`:''}
-    `;
-  });
-}
-function selectExpandCity(cityId){
-  SFX.tap(); selectedExpandCity=cityId;
-  const city=CITIES[cityId]; if(!city) return;
-  const owned=state.branches.find(b=>b.cityId===cityId);
-  const expandDef=BRANCH_EXPAND.find(e=>e.cityId===cityId);
-  const prog=state.branchProgress[cityId]||0;
-  const qualified=expandDef&&prog>=expandDef.daysNeeded;
-  setText('ep-city',city.name);
-  setText('ep-desc',city.desc);
-  const cost=expandDef?.cost||10000;
-  setText('ep-cost','$'+cost.toLocaleString());
-  setText('ep-passive','$'+Math.floor(city.passive/120)+'/30秒');
-  const statusEl=document.getElementById('ep-status');
-  const btnEl=document.getElementById('ep-btn');
-  const condEl=document.getElementById('ep-condition');
-  if(owned){
-    if(statusEl){statusEl.textContent='✅ 已開店';statusEl.style.background='rgba(16,185,129,.2)';statusEl.style.color='#34d399';}
-    if(btnEl){btnEl.disabled=true;btnEl.textContent='已開店';}
-    if(condEl) condEl.classList.remove('show');
-  }else if(!expandDef){
-    if(statusEl){statusEl.textContent='⚠️ 主店先開';statusEl.style.background='rgba(107,114,128,.2)';statusEl.style.color=var_mt;}
-    if(btnEl){btnEl.disabled=true;btnEl.textContent='無法開店';}
-  }else if(!qualified){
-    const need=expandDef.daysNeeded-prog;
-    if(statusEl){statusEl.textContent='🔒 未達條件';statusEl.style.background='rgba(107,114,128,.2)';statusEl.style.color='#9ca3af';}
-    if(condEl){condEl.classList.add('show');condEl.textContent=`需要連續 ${need} 天以上日營收達 $${expandDef.dayRevTarget.toLocaleString()} 的 ${Math.round(BRANCH_PCT_THRESHOLD*100)}%（目前已達 ${prog}/${expandDef.daysNeeded} 天）`;}
-    if(btnEl){btnEl.disabled=true;btnEl.textContent='條件未達';}
-  }else if(state.money<cost){
-    if(statusEl){statusEl.textContent='💸 資金不足';statusEl.style.background='rgba(239,68,68,.2)';statusEl.style.color='#f87171';}
-    if(condEl) condEl.classList.remove('show');
-    if(btnEl){btnEl.disabled=true;btnEl.textContent='金錢不足';}
-  }else{
-    if(statusEl){statusEl.textContent='✨ 可以展店！';statusEl.style.background='rgba(245,158,11,.2)';statusEl.style.color='#fbbf24';}
-    if(condEl) condEl.classList.remove('show');
-    if(btnEl){btnEl.disabled=false;btnEl.textContent=`開立分店 ($${cost.toLocaleString()})`;}
-  }
-  document.getElementById('expand-popup').style.display='block';
-}
-const var_mt='#94a3b8';
-function closeExpandPopup(){ document.getElementById('expand-popup').style.display='none'; selectedExpandCity=null; }
-function openBranch(){
-  if(!selectedExpandCity) return;
-  const expandDef=BRANCH_EXPAND.find(e=>e.cityId===selectedExpandCity); if(!expandDef) return;
-  if(state.branches.find(b=>b.cityId===selectedExpandCity)){showToast('⚠️ 已在此城市開店');return;}
-  if(state.money<expandDef.cost){showToast('💸 金錢不足！');return;}
-  const prog=state.branchProgress[selectedExpandCity]||0;
-  if(prog<expandDef.daysNeeded){showToast('⚠️ 尚未達到展店條件');return;}
-  state.money-=expandDef.cost;
-  const city=CITIES[selectedExpandCity];
-  state.branches.push({cityId:selectedExpandCity,cityName:city.name,shopName:state.charName+'的'+city.name+'早餐店',layout:[],dayRevHistory:[],passive:city.passive});
-  saveState(); refreshExpandMap(); closeExpandPopup();
-  SFX.branchOpen();
-  showExpandSuccessModal(city.name,expandDef);
-  checkAchievements();
-}
-function showExpandSuccessModal(cityName,def){
-  const o=document.createElement('div'); o.className='modal-overlay';
-  o.innerHTML=`<div class="modal-card">
-    <span class="modal-emoji">🎊</span>
-    <div class="modal-title">${cityName} 分店開張！</div>
-    <div class="modal-body">恭喜在 <strong>${cityName}</strong> 成功開店！<br>每30秒被動收入：<strong>+$${Math.floor((def.passive||800)/120)}</strong></div>
-    <button class="btn-primary" onclick="this.closest('.modal-overlay').remove()">🎉 太棒了！</button>
-  </div>`;
-  document.body.appendChild(o);
-}
-
-// ══════════════ FRIENDS ══════════════
-function refreshFriendsUI(){
-  setText('my-id',state.user?.id||'---');
-  const list=document.getElementById('friends-list'); if(!list) return;
-  const friends=state.friends||[];
-  if(!friends.length){ list.innerHTML='<div style="color:#6b7280;text-align:center;padding:16px;font-size:.85rem">還沒有好友！分享你的 ID 給朋友吧</div>'; return; }
-  list.innerHTML='';
-  friends.forEach(f=>{
-    const d=document.createElement('div'); d.className='friend-item';
-    d.innerHTML=`<div class="fi-av">${f.char==='girl'?'👧':'👦'}</div><div class="fi-info"><div class="fi-name">${esc(f.name)}</div><div class="fi-detail">Lv.${f.level} • ${f.branches}間分店</div></div><div class="fi-act" onclick="visitFriend('${f.id}')">參觀→</div>`;
-    list.appendChild(d);
-  });
-}
-function copyId(){
-  const id=state.user?.id||''; if(!id) return;
-  navigator.clipboard?.writeText(id).then(()=>showToast('📋 ID 已複製！')).catch(()=>showToast('ID: '+id,4000));
-}
-function addFriend(){
-  const inp=document.getElementById('friend-id-inp'); if(!inp) return;
-  const fid=inp.value.trim().toUpperCase();
-  if(!fid){showToast('⚠️ 請輸入好友 ID');return;}
-  if(fid===state.user?.id){showToast('⚠️ 不能加自己');return;}
-  if(!Array.isArray(state.friends)) state.friends=[];
-  if(state.friends.find(f=>f.id===fid)){showToast('⚠️ 已是好友');return;}
-  let users={}; try{users=JSON.parse(localStorage.getItem('bk_users')||'{}');}catch(e){}
-  const fu=users[fid]; if(!fu){showToast('⚠️ 找不到此 ID');return;}
-  let fs=null; try{fs=JSON.parse(localStorage.getItem('bk_save_'+fid));}catch(e){}
-  state.friends.push({id:fid,name:fs?.charName||fu.name||'未知',char:fs?.char||'boy',level:fs?getTitle(fs.totalIncome||0).level:1,branches:Array.isArray(fs?.branches)?fs.branches.length:1,rating:fs?.rating||4.0,shopName:fs?.branches?.[0]?.shopName||'早餐店'});
-  inp.value=''; saveState(); refreshFriendsUI(); checkAchievements();
-  showToast('✅ 已加入好友！');
-}
-function visitFriend(fid){
-  const f=(state.friends||[]).find(x=>x.id===fid); if(!f) return;
-  setText('visit-title','參觀 '+f.name+' 的店');
-  setText('vs-sign',f.shopName||f.name+'的早餐店');
-  setText('vs-char',f.char==='girl'?'👧':'👦');
-  const lines=['歡迎光臨！請多關照！','今天的早餐超好吃的！','謝謝你來！','我要在全台灣開分店！'];
-  setText('vs-bubble',lines[Math.floor(Math.random()*lines.length)]);
-  setText('vs-branches',f.branches); setText('vs-level',f.level); setText('vs-rating',(Number(f.rating)||4.0).toFixed(1));
-  showScreen('screen-visit');
-}
-function giveReview(){ state.money+=50; state.totalIncome+=50; saveState(); SFX.coin(); showToast('⭐ 好評！+$50'); showCookAnim('⭐'); }
-function buyItem(){ if(state.money<30){showToast('💸 需要$30');return;} state.money-=30; saveState(); SFX.coin(); showToast('🥪 美味！'); showCookAnim('🥪'); }
-function sendGift(){ if(state.money<100){showToast('💸 需要$100');return;} state.money-=100; saveState(); SFX.complete(); showToast('🎁 禮物送出！'); showCookAnim('🎁'); }
-
-// ══════════════ PROFILE ══════════════
-function goProfile(){ showScreen('screen-profile'); }
-function refreshProfileUI(){
-  if(!state.char) return;
-  const t=getTitle(state.totalIncome);
-  setText('prof-avatar',state.char==='boy'?'👦':'👧');
-  setText('prof-name',state.charName);
-  setText('prof-title','Lv.'+t.level+' '+t.title);
-  setText('ps-money','$'+state.money.toLocaleString());
-  setText('ps-branches',state.branches.length);
-  setText('ps-level',t.level);
-  setText('ps-cooked',state.totalCooked);
-  buildAchList();
-}
-function buildAchList(){
-  const l=document.getElementById('ach-list'); if(!l) return;
-  l.innerHTML='';
-  ACHIEVEMENTS.forEach(a=>{
-    const un=(state.achievements||[]).includes(a.id);
-    const d=document.createElement('div'); d.className='ach-item'+(un?' unlocked':'');
-    d.innerHTML=`<span class="ai-icon">${un?a.icon:'🔒'}</span><div class="ai-name">${un?a.name:'???'}</div><div class="ai-desc">${un?a.desc:'繼續努力...'}</div>`;
-    l.appendChild(d);
-  });
-}
-function checkAchievements(){
-  if(!Array.isArray(state.achievements)) state.achievements=[];
-  ACHIEVEMENTS.forEach(a=>{
-    if(!state.achievements.includes(a.id)&&a.cond(state)){
-      state.achievements.push(a.id);
-      setTimeout(()=>showToast(`🏆 成就：${a.icon} ${a.name}！`,3000),300);
-    }
-  });
-}
-
-// ══════════════ INIT ══════════════
-window.addEventListener('load',()=>{
-  let lu=null; try{lu=JSON.parse(localStorage.getItem('bk_lastuser'));}catch(e){}
-  if(lu?.id){
-    state.user=lu;
-    if(loadState(lu.id)&&state.branches.length>0){ resumeGame(); return; }
-  }
-  showScreen('screen-login');
+// ── Burst: coins collected ──
+burstCoin(x, y) {
+this.emit(x, y, {
+count: 12, speed: 160, spread: Math.PI * 2, gravity: 300,
+lifetime: 0.9, size: 8, type: ‘star’,
+colors: [0xfbbf24, 0xffd700, 0xffffff, 0xf97316],
 });
+// Trailing sparks
+this.emit(x, y, {
+count: 20, speed: 80, spread: Math.PI * 2, gravity: 80,
+lifetime: 0.5, size: 3, type: ‘spark’,
+colors: [0xfbbf24, 0xffffff],
+});
+}
+
+// ── Burst: order complete ──
+burstComplete(x, y) {
+this.emit(x, y, {
+count: 15, speed: 200, spread: Math.PI * 1.5, angle: -Math.PI / 2,
+gravity: 250, lifetime: 1.0, size: 10, type: ‘star’,
+colors: [0x10b981, 0xfbbf24, 0xffffff, 0x34d399],
+});
+this.emit(x, y, {
+count: 25, speed: 100, spread: Math.PI * 2, gravity: 50,
+lifetime: 0.6, size: 4, type: ‘spark’,
+colors: [0x10b981, 0xffffff],
+});
+}
+
+// ── Burst: cooking sizzle ──
+burstSizzle(x, y) {
+this.emit(x, y, {
+count: 8, speed: 60, spread: Math.PI / 2, angle: -Math.PI / 2,
+gravity: 20, lifetime: 0.5, size: 4, type: ‘smoke’,
+colors: [0xffffff, 0xd4d4d4, 0xa3a3a3],
+});
+}
+
+// ── Burst: level up ──
+burstLevelUp(x, y) {
+for (let ring = 0; ring < 3; ring++) {
+setTimeout(() => {
+this.emit(x, y, {
+count: 20, speed: 180 + ring * 40, spread: Math.PI * 2,
+gravity: -30, lifetime: 1.2, size: 8, type: ‘star’,
+colors: [0xfbbf24, 0xf97316, 0xffffff, 0xffd700],
+});
+}, ring * 100);
+}
+}
+
+// ── Burst: order expired ──
+burstExpire(x, y) {
+this.emit(x, y, {
+count: 10, speed: 100, spread: Math.PI * 2,
+gravity: 100, lifetime: 0.6, size: 6, type: ‘circle’,
+colors: [0xef4444, 0xfca5a5, 0xffffff],
+});
+}
+
+// ── Update (delta in seconds) ──
+update(delta) {
+for (let i = this.particles.length - 1; i >= 0; i–) {
+const p = this.particles[i];
+p.life -= delta;
+if (p.life <= 0) { this.particles.splice(i, 1); continue; }
+
+```
+  const t = p.life / p.maxLife;
+  p.x += p.vx * delta;
+  p.y += p.vy * delta;
+  p.vx += p.ax * delta;
+  p.vy += p.ay * delta;
+  p.rotation += p.rotSpeed * delta;
+
+  if (p.type === 'smoke') {
+    p.vx *= (1 - delta * 2);
+    p.size += delta * 12;
+    p.alpha = t * 0.5;
+  } else if (p.type === 'spark') {
+    p.alpha = t;
+    p.vx *= (1 - delta * 3);
+    p.vy *= (1 - delta * 0.5);
+  } else {
+    p.alpha = t;
+  }
+}
+```
+
+}
+
+// ── Draw onto Phaser Graphics / Canvas context ──
+drawOnGraphics(gfx) {
+for (const p of this.particles) {
+const r = (p.color >> 16) & 0xff;
+const g = (p.color >> 8) & 0xff;
+const b = p.color & 0xff;
+const hex = p.color;
+
+```
+  gfx.fillStyle(hex, p.alpha);
+  gfx.lineStyle(0);
+
+  if (p.type === 'star') {
+    // Draw 4-pointed star
+    gfx.save();
+    gfx.translateCanvas(p.x, p.y);
+    gfx.fillStyle(hex, p.alpha);
+    const s = p.size;
+    gfx.fillTriangle(-s*.3,-s, s*.3,-s, 0,-s*.1);
+    gfx.fillTriangle(-s*.3,s, s*.3,s, 0,s*.1);
+    gfx.fillTriangle(-s,-s*.3, -s,s*.3, -s*.1,0);
+    gfx.fillTriangle(s,-s*.3, s,s*.3, s*.1,0);
+    gfx.restore();
+  } else if (p.type === 'spark') {
+    // Thin line spark
+    gfx.lineStyle(p.size*.5, hex, p.alpha);
+    gfx.strokeLineShape({
+      x1: p.x, y1: p.y,
+      x2: p.x - p.vx * 0.04,
+      y2: p.y - p.vy * 0.04,
+    });
+  } else if (p.type === 'smoke') {
+    gfx.fillStyle(hex, p.alpha * 0.4);
+    gfx.fillCircle(p.x, p.y, p.size);
+  } else {
+    gfx.fillCircle(p.x, p.y, p.size * p.life / p.maxLife);
+  }
+}
+```
+
+}
+
+get count() { return this.particles.length; }
+}
+/* ═══════════════════════════════════
+BootScene.js
+═══════════════════════════════════ */
+class BootScene extends Phaser.Scene {
+constructor() { super(‘BootScene’); }
+preload() {
+// Generate textures procedurally (no external assets needed)
+}
+create() {
+this.scene.start(‘GameScene’);
+}
+}
+class LoginScene extends Phaser.Scene {
+constructor() { super(‘LoginScene’); }
+create() {}
+}
+class CharSelectScene extends Phaser.Scene {
+constructor() { super(‘CharSelectScene’); }
+create() {}
+}
+class LocationScene extends Phaser.Scene {
+constructor() { super(‘LocationScene’); }
+create() {}
+}
+CharSelectScene
+LocationScene
+/* ═══════════════════════════════════
+GameScene.js — Core Rendering Pipeline
+Delta Time Game Loop + Lighting + Particles
+═══════════════════════════════════ */
+class GameScene extends Phaser.Scene {
+constructor() { super({ key: ‘GameScene’, active: false }); }
+
+// ══════════════════════════════
+//  CREATE
+// ══════════════════════════════
+create() {
+const W = this.scale.width, H = this.scale.height;
+this.W = W; this.H = H;
+this.gs = window.GAME_STATE;
+this.particles = new ParticleSystem(this);
+this.dayTimer = GD.DAY_DURATION / 1000;
+this.dayRunning = true;
+this.activeOrders = window.ACTIVE_ORDERS;
+this._orderIdCtr = window.ORDER_ID_CTR;
+this.combo = 0;
+this.autoServeTimers = [];
+this._shopChars = [];   // animated customer/staff figures
+this._cookingItems = {};
+
+```
+// ── Scene layers ──
+// 1) Background
+this.bgGfx = this.add.graphics();
+// 2) Shop building
+this.shopGfx = this.add.graphics();
+// 3) Characters (canvas-drawn)
+this.charGfx = this.add.graphics();
+// 4) Particles
+this.partGfx = this.add.graphics();
+// 5) Lighting overlay (multiply blend)
+this.lightGfx = this.add.graphics();
+// 6) Vignette + top overlay
+this.postGfx = this.add.graphics();
+// 7) HUD (always on top)
+this.hudGfx = this.add.graphics();
+
+// ── DOM UI Panel (bottom, HTML overlay) ──
+this._buildDOMPanel();
+
+// ── Ensure shop has default layout ──
+this._ensureShopReady();
+
+// ── Start systems ──
+this._startOrderSpawner();
+this._startAutoServe();
+this._startPassiveIncome();
+AudioEngine.startBGM();
+
+// ── Input ──
+this.input.on('pointerdown', (ptr) => {
+  AudioEngine.resume();
+  this._handleTap(ptr.x, ptr.y);
+});
+
+// ── Day timer event ──
+this._dayTimerEvent = this.time.addEvent({
+  delay: 1000, loop: true,
+  callback: () => {
+    if (!this.dayRunning) return;
+    this.dayTimer--;
+    if (this.dayTimer <= 0) { this.dayRunning = false; this._endDay(); }
+  }
+});
+
+// ── Init UI ──
+this.scene.launch('UIScene');
+this.scene.bringToTop('UIScene');
+this._refreshUI();
+
+// Intro flash
+this.cameras.main.flash(400, 255, 248, 220);
+```
+
+}
+
+// ══════════════════════════════
+//  UPDATE — Delta Time Loop
+// ══════════════════════════════
+update(time, delta) {
+const dt = delta / 1000; // seconds
+
+```
+// Clear all graphics layers each frame
+this.bgGfx.clear();
+this.shopGfx.clear();
+this.charGfx.clear();
+this.partGfx.clear();
+this.lightGfx.clear();
+this.postGfx.clear();
+this.hudGfx.clear();
+
+// ── Render passes ──
+this._drawBackground(dt);
+this._drawShopBuilding(dt);
+this._drawCharacters(dt);
+this.particles.update(dt);
+this._drawParticles();
+this._drawLighting(dt);
+this._drawVignette();
+this._drawHUD();
+
+// Update animated chars
+this._updateChars(dt);
+```
+
+}
+
+// ══════════════════════════════
+//  PASS 1: Background
+// ══════════════════════════════
+_drawBackground(dt) {
+const { W, H, bgGfx } = this;
+
+```
+// Sky gradient (comic-warm blue)
+const skyH = H * 0.38;
+for (let y = 0; y < skyH; y += 2) {
+  const t = y / skyH;
+  const r = Phaser.Math.Linear(0x6e, 0xb8, t);
+  const g = Phaser.Math.Linear(0xc6, 0xe4, t);
+  const b = Phaser.Math.Linear(0xf0, 0xf8, t);
+  bgGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 1);
+  bgGfx.fillRect(0, y, W, 2);
+}
+
+// Ground gradient
+for (let y = skyH; y < H * 0.62; y += 2) {
+  const t = (y - skyH) / (H * 0.24);
+  const r = Phaser.Math.Linear(0xf5, 0xe8, t);
+  const g = Phaser.Math.Linear(0xe6, 0xd4, t);
+  const b = Phaser.Math.Linear(0xc8, 0xa0, t);
+  bgGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 1);
+  bgGfx.fillRect(0, y, W, 2);
+}
+
+// Animated sun
+const sunX = W * 0.85, sunY = H * 0.06;
+const sunR = 22;
+const t = this.time.now / 1000;
+// Sun glow
+for (let i = 4; i >= 0; i--) {
+  bgGfx.fillStyle(0xfbbf24, 0.04 * (5 - i));
+  bgGfx.fillCircle(sunX, sunY, sunR + i * 8);
+}
+bgGfx.fillStyle(0xffd700, 1); bgGfx.fillCircle(sunX, sunY, sunR);
+bgGfx.fillStyle(0xfffacd, 0.7); bgGfx.fillCircle(sunX - 4, sunY - 4, sunR * 0.4);
+
+// Ray lines from sun
+bgGfx.lineStyle(1.5, 0xfbbf24, 0.35);
+for (let i = 0; i < 8; i++) {
+  const a = (i / 8) * Math.PI * 2 + t * 0.3;
+  bgGfx.strokeLineShape({
+    x1: sunX + Math.cos(a) * (sunR + 4),
+    y1: sunY + Math.sin(a) * (sunR + 4),
+    x2: sunX + Math.cos(a) * (sunR + 14),
+    y2: sunY + Math.sin(a) * (sunR + 14),
+  });
+}
+
+// Animated clouds
+this._drawCloud(bgGfx, ((t * 18) % (W + 80)) - 40, H * 0.09, 1.0);
+this._drawCloud(bgGfx, ((t * 10 + W * 0.4) % (W + 80)) - 40, H * 0.16, 0.7);
+
+// Sky cross-hatch lines (comic style)
+bgGfx.lineStyle(0.8, 0xffffff, 0.08);
+for (let x = 0; x < W; x += 14) bgGfx.strokeLineShape({ x1:x, y1:0, x2:x, y2:skyH });
+for (let y = 0; y < skyH; y += 14) bgGfx.strokeLineShape({ x1:0, y1:y, x2:W, y2:y });
+```
+
+}
+
+_drawCloud(gfx, x, y, scale) {
+const s = scale;
+gfx.fillStyle(0xffffff, 0.85 * s);
+gfx.fillCircle(x, y, 16 * s);
+gfx.fillCircle(x + 18 * s, y - 4 * s, 20 * s);
+gfx.fillCircle(x + 36 * s, y, 14 * s);
+gfx.fillRect(x - 2 * s, y, 40 * s, 16 * s);
+// Outline
+gfx.lineStyle(1.5, 0x1a0a00, 0.15 * s);
+gfx.strokeCircle(x + 18 * s, y - 4 * s, 20 * s);
+}
+
+// ══════════════════════════════
+//  PASS 2: Shop Building
+// ══════════════════════════════
+_drawShopBuilding(dt) {
+const { W, H, shopGfx } = this;
+const shop = this._getShop();
+const bW = Math.min(W * 0.92, 340);
+const bX = (W - bW) / 2;
+const bH = H * 0.42;
+const bY = H * 0.58;
+this._shopRect = { x: bX, y: bY, w: bW, h: bH };
+
+```
+// ── Shadow ──
+shopGfx.fillStyle(0x000000, 0.25);
+shopGfx.fillRoundedRect(bX + 5, bY + 5, bW, bH, 10);
+
+// ── Main wall ──
+// Wall gradient (warm brick red)
+for (let row = 0; row < bH; row += 3) {
+  const t = row / bH;
+  const r = Phaser.Math.Linear(0xd4, 0x9a, t);
+  const g = Phaser.Math.Linear(0x52, 0x30, t);
+  const b = Phaser.Math.Linear(0x20, 0x10, t);
+  shopGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 1);
+  shopGfx.fillRect(bX, bY + row, bW, 3);
+}
+
+// ── Roof stripe ──
+const stripeH = 10;
+const stripeW = 22;
+for (let sx = bX; sx < bX + bW; sx += stripeW * 2) {
+  shopGfx.fillStyle(0xfbbf24, 1); shopGfx.fillRect(sx, bY, stripeW, stripeH);
+  shopGfx.fillStyle(0xffffff, 1); shopGfx.fillRect(sx + stripeW, bY, stripeW, stripeH);
+}
+shopGfx.lineStyle(2, 0x1a0a00, 1); shopGfx.strokeRect(bX, bY, bW, stripeH);
+
+// ── Sign bar ──
+const signY = bY + stripeH;
+const signH = 28;
+shopGfx.fillStyle(0xfbbf24, 1); shopGfx.fillRect(bX, signY, bW, signH);
+shopGfx.lineStyle(2, 0x1a0a00, 1); shopGfx.strokeRect(bX, signY, bW, signH);
+// Sign text drawn via DOM
+
+// ── Window / Interior grid ──
+const gridY = signY + signH + 4;
+const gridH = bH - stripeH - signH - 4;
+const layout = shop?.layout || [];
+const cols = GD.FLOOR_COLS, rows = GD.FLOOR_ROWS;
+const cellW = (bW - 8) / cols;
+const cellH = (gridH - 6) / rows;
+
+for (let r = 0; r < rows; r++) {
+  for (let c = 0; c < cols; c++) {
+    const idx = r * cols + c;
+    const key = layout[idx];
+    const cx = bX + 4 + c * cellW;
+    const cy = gridY + 3 + r * cellH;
+
+    // Cell background
+    shopGfx.fillStyle(key ? 0xfff0d8 : 0xffe8c0, 0.12);
+    shopGfx.fillRoundedRect(cx + 1, cy + 1, cellW - 2, cellH - 2, 3);
+    // Cell border
+    shopGfx.lineStyle(0.5, 0x1a0a00, 0.2);
+    shopGfx.strokeRoundedRect(cx + 1, cy + 1, cellW - 2, cellH - 2, 3);
+
+    // Store cell rects for tap detection
+    if (!this._cellRects) this._cellRects = [];
+    this._cellRects[idx] = { x: cx, y: cy, w: cellW, h: cellH };
+  }
+}
+
+// ── Outer border (thick ink) ──
+shopGfx.lineStyle(3, 0x1a0a00, 1);
+shopGfx.strokeRoundedRect(bX, bY, bW, bH, { tl: 10, tr: 10, bl: 0, br: 0 });
+
+// Store for character layer
+this._shopLayout = { bX, bY, bW, bH, gridY, gridH, cellW, cellH };
+```
+
+}
+
+// ══════════════════════════════
+//  PASS 3: Characters
+// ══════════════════════════════
+_drawCharacters(dt) {
+// Characters are stored as objects and drawn each frame
+}
+
+_updateChars(dt) {
+const now = this.time.now;
+for (let i = this._shopChars.length - 1; i >= 0; i–) {
+const ch = this._shopChars[i];
+ch.age += dt;
+
+```
+  // Walk-in: slide from left
+  if (ch.state === 'entering') {
+    ch.x = Phaser.Math.Linear(ch.x, ch.targetX, dt * 5);
+    if (Math.abs(ch.x - ch.targetX) < 2) { ch.state = 'waiting'; ch.stateAge = 0; }
+  }
+  // Waiting: gentle bob
+  if (ch.state === 'waiting') { ch.stateAge += dt; }
+  // Happy: jump
+  if (ch.state === 'happy') {
+    ch.stateAge += dt;
+    if (ch.stateAge > 0.8) { ch.state = 'leaving'; ch.stateAge = 0; }
+  }
+  // Leaving: slide out
+  if (ch.state === 'leaving') {
+    ch.stateAge += dt;
+    ch.x += dt * 120;
+    ch.alpha = Math.max(0, 1 - ch.stateAge * 2);
+    if (ch.stateAge > 0.6) { this._shopChars.splice(i, 1); continue; }
+  }
+  // Angry
+  if (ch.state === 'angry') {
+    ch.stateAge += dt;
+    if (ch.stateAge > 0.6) { ch.state = 'leaving'; ch.stateAge = 0; }
+  }
+
+  // Draw char
+  this._drawCharFigure(ch, dt);
+}
+```
+
+}
+
+_drawCharFigure(ch, dt) {
+const gfx = this.charGfx;
+if (!ch.x || ch.alpha <= 0) return;
+
+```
+const bobY = ch.state === 'waiting' ? Math.sin(ch.stateAge * 3) * 2.5 : 0;
+const jumpY = ch.state === 'happy' ? -Math.abs(Math.sin(ch.stateAge * Math.PI * 4)) * 12 : 0;
+const shakeX = ch.state === 'angry' ? Math.sin(ch.stateAge * 30) * 3 : 0;
+const cookRot = ch.role === 'staff' ? Math.sin((this.time.now / 1000) * 8) * 0.15 : 0;
+
+const drawX = ch.x + shakeX;
+const drawY = ch.y + bobY + jumpY;
+const alpha = ch.alpha ?? 1;
+const sz = ch.size ?? 28;
+
+// Shadow
+gfx.fillStyle(0x000000, 0.2 * alpha);
+gfx.fillEllipse(drawX, ch.y + 2, sz * 0.8, 6);
+
+// Character circle (emoji bg)
+gfx.fillStyle(0xffffff, 0.9 * alpha);
+gfx.fillCircle(drawX, drawY - sz * 0.5, sz * 0.55);
+gfx.lineStyle(2, 0x1a0a00, alpha);
+gfx.strokeCircle(drawX, drawY - sz * 0.5, sz * 0.55);
+
+// Speech bubble
+if (ch.bubble && ch.age < ch.bubbleLife) {
+  const bAlpha = Math.min(1, (ch.bubbleLife - ch.age) * 2) * alpha;
+  const bW = ch.bubble.length * 7 + 14;
+  const bH = 18;
+  const bX = drawX - bW / 2;
+  const bY2 = drawY - sz * 1.3 - bH;
+  gfx.fillStyle(0xffffff, bAlpha);
+  gfx.fillRoundedRect(bX, bY2, bW, bH, 6);
+  gfx.lineStyle(2, 0x1a0a00, bAlpha);
+  gfx.strokeRoundedRect(bX, bY2, bW, bH, 6);
+  // Tail
+  gfx.fillStyle(0xffffff, bAlpha);
+  gfx.fillTriangle(drawX - 4, bY2 + bH, drawX + 4, bY2 + bH, drawX, bY2 + bH + 5);
+}
+
+// Sparkle on happy
+if (ch.state === 'happy') {
+  const t = ch.stateAge;
+  gfx.fillStyle(0xfbbf24, Math.max(0, 1 - t * 2));
+  gfx.fillStar(drawX + 15, drawY - sz, 5, 6, 3);
+  gfx.fillStar(drawX - 14, drawY - sz - 5, 5, 5, 2.5);
+}
+```
+
+}
+
+addCustomer(order) {
+const sl = this._shopLayout;
+if (!sl) return;
+const targetX = sl.bX + 20 + Math.random() * (sl.bW * 0.6);
+const charY = sl.bY + sl.bH - 10;
+this._shopChars.push({
+id: order.id, role: ‘customer’,
+emoji: order.cust,
+x: -30, targetX, y: charY,
+state: ‘entering’, stateAge: 0, age: 0,
+alpha: 1, size: 26,
+bubble: ‘我要’ + order.item.name + ‘！’,
+bubbleLife: 2.5,
+});
+}
+
+serveCustomer(orderId) {
+const ch = this._shopChars.find(c => c.id === orderId);
+if (ch) { ch.state = ‘happy’; ch.stateAge = 0; ch.bubble = ‘謝謝！’; ch.bubbleLife = 0.8; ch.age = 0; }
+}
+
+angryCustomer(orderId) {
+const ch = this._shopChars.find(c => c.id === orderId);
+if (ch) { ch.state = ‘angry’; ch.stateAge = 0; ch.bubble = ‘太慢了！’; ch.bubbleLife = 0.6; ch.age = 0; }
+}
+
+// ══════════════════════════════
+//  PASS 4: Particles
+// ══════════════════════════════
+_drawParticles() {
+this.particles.drawOnGraphics(this.partGfx);
+}
+
+// ══════════════════════════════
+//  PASS 5: Dynamic Lighting
+// ══════════════════════════════
+_drawLighting(dt) {
+const { W, H, lightGfx } = this;
+const t = this.time.now / 1000;
+
+```
+// Warm ambient fill at bottom (shop interior glow)
+lightGfx.fillStyle(0xf97316, 0.06);
+lightGfx.fillRect(0, H * 0.55, W, H * 0.45);
+
+// Animated warm light over cooking area (pulsing)
+const pulse = 0.5 + Math.sin(t * 2) * 0.08;
+const sl = this._shopLayout;
+if (sl) {
+  const cx = sl.bX + sl.bW * 0.75;
+  const cy = sl.bY + 60;
+  const grad = this.make.graphics({ x: 0, y: 0, add: false });
+  // Radial spotlight glow (simulated with concentric circles)
+  for (let r = 5; r >= 0; r--) {
+    lightGfx.fillStyle(0xf59e0b, 0.03 * pulse * (6 - r));
+    lightGfx.fillCircle(cx, cy, 20 + r * 15);
+  }
+}
+
+// Sign flicker light
+const signPulse = 0.5 + Math.sin(t * 4 + 1) * 0.5;
+if (sl) {
+  for (let r = 3; r >= 0; r--) {
+    lightGfx.fillStyle(0xfbbf24, 0.025 * signPulse * (4 - r));
+    lightGfx.fillRect(sl.bX - r * 3, sl.bY + 10 - r, sl.bW + r * 6, 28 + r * 2);
+  }
+}
+```
+
+}
+
+// ══════════════════════════════
+//  PASS 6: Vignette + Post FX
+// ══════════════════════════════
+_drawVignette() {
+const { W, H, postGfx } = this;
+
+```
+// Vignette (dark edges)
+const steps = 8;
+for (let i = 0; i < steps; i++) {
+  const t = i / steps;
+  const alpha = t * t * 0.5; // quadratic falloff
+  const margin = (1 - t) * W * 0.5;
+  postGfx.fillStyle(0x000000, alpha * 0.4);
+  // Left
+  postGfx.fillRect(0, 0, margin * 0.4, H);
+  // Right
+  postGfx.fillRect(W - margin * 0.4, 0, margin * 0.4, H);
+  // Top
+  postGfx.fillRect(0, 0, W, margin * 0.3);
+  // Bottom
+  postGfx.fillRect(0, H - margin * 0.25, W, margin * 0.25);
+}
+
+// Comic ink outline border around entire screen
+postGfx.lineStyle(4, 0x1a0a00, 0.3);
+postGfx.strokeRect(2, 2, W - 4, H - 4);
+```
+
+}
+
+// ══════════════════════════════
+//  PASS 7: HUD (canvas)
+// ══════════════════════════════
+_drawHUD() {
+const { W, hudGfx } = this;
+const gs = this.gs;
+
+```
+// Day progress bar (thin strip at very top)
+const barY = 0, barH = 4;
+const total = GD.DAY_DURATION / 1000;
+const pct = Math.max(0, 1 - this.dayTimer / total);
+hudGfx.fillStyle(0x1a0a00, 0.7); hudGfx.fillRect(0, barY, W, barH);
+hudGfx.fillStyle(0x10b981, 0.9); hudGfx.fillRect(0, barY, W * pct, barH);
+// Glow on progress bar tip
+const tipX = W * pct;
+hudGfx.fillStyle(0x34d399, 0.5); hudGfx.fillRect(tipX - 3, barY, 6, barH);
+```
+
+}
+
+// ══════════════════════════════
+//  DOM PANEL (bottom UI)
+// ══════════════════════════════
+_buildDOMPanel() {
+const gs = this.gs;
+const shop = this._getShop();
+const overlay = document.getElementById(‘ui-overlay’);
+if (!overlay) return;
+overlay.classList.add(‘interactive’);
+overlay.innerHTML = this._hudHTML() + this._panelHTML();
+this._attachPanelEvents();
+this._refreshShopSign();
+}
+
+_hudHTML() {
+const gs = this.gs;
+const td = DB.getTitle(gs.totalIncome);
+const av = gs.char === ‘boy’ ? ‘👦’ : ‘👧’;
+const total = GD.DAY_DURATION / 1000;
+return `<div id="dom-hud" style=" position:fixed;top:env(safe-area-inset-top,0);left:0;right:0; height:52px;background:rgba(245,158,11,.95); border-bottom:3px solid #1a0a00; display:flex;align-items:center;gap:6px;padding:0 10px; box-shadow:0 3px 0 #1a0a00; font-family:'Noto Sans TC',sans-serif; z-index:50; "> <div onclick="window._gameScene?.showProfile()" style="display:flex;align-items:center;gap:7px;cursor:pointer;flex-shrink:0"> <span style="font-size:1.6rem;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.5))">${av}</span> <div> <div style="color:white;font-weight:900;font-size:.82rem;text-shadow:1px 1px 0 rgba(0,0,0,.4);white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis" id="hud-name">${gs.charName}</div> <div style="color:#1a0a00;font-size:.64rem;font-weight:900">Lv.<span id="hud-lv">${td.level}</span> ${td.title}</div> </div> </div> <div style=" flex:1;display:flex;align-items:center;justify-content:center;gap:3px; background:white;border:3px solid #1a0a00;border-radius:18px; padding:3px 10px;box-shadow:3px 3px 0 #1a0a00; font-weight:900;color:#1a0a00;font-size:.88rem; ">💰 <span id="hud-money">${gs.money.toLocaleString()}</span> 元</div> <div style="display:flex;gap:4px;flex-shrink:0"> <button onclick="window._gameScene?.toggleMusicBtn(this)" style=" padding:5px 7px;background:white;border:3px solid #1a0a00;border-radius:8px; font-size:.72rem;cursor:pointer;min-height:32px;min-width:32px; box-shadow:3px 3px 0 #1a0a00;font-weight:900; " id="btn-music">🎵</button> <button onclick="window._gameScene?.showMap()" style=" padding:5px 7px;background:white;border:3px solid #1a0a00;border-radius:8px; font-size:.72rem;cursor:pointer;min-height:32px;min-width:32px; box-shadow:3px 3px 0 #1a0a00; ">🗺️</button> </div> </div> <!-- Day timer info bar --> <div id="dom-daybar" style=" position:fixed;top:calc(env(safe-area-inset-top,0) + 52px);left:0;right:0; background:rgba(29,16,5,.92);border-bottom:2px solid #1a0a00; padding:4px 12px;display:flex;align-items:center;gap:8px; font-family:'Noto Sans TC',sans-serif;z-index:49;height:44px; "> <span style="color:#fbbf24;font-size:.68rem;font-weight:900;flex-shrink:0">⏰</span> <div style="flex:1;height:8px;background:rgba(255,255,255,.1);border:2px solid #1a0a00;border-radius:4px;overflow:hidden"> <div id="dom-dayfill" style="height:100%;width:0%;background:linear-gradient(90deg,#f59e0b,#10b981);transition:width 1s linear;border-radius:2px"></div> </div> <span id="dom-daytime" style="color:white;font-size:.72rem;font-weight:900;flex-shrink:0;min-width:40px;text-align:right">30:00</span> <span style="color:#6b7280;font-size:.65rem">目標<strong id="dom-daygoal" style="color:#fbbf24">$0</strong></span> <span style="color:#6b7280;font-size:.65rem">今日<strong id="dom-dayearned" style="color:#34d399">$0</strong></span> </div> <!-- Orders row (floating above shop) --> <div id="dom-orders" style=" position:fixed;top:calc(env(safe-area-inset-top,0) + 100px); left:0;right:0; display:flex;gap:8px;padding:0 10px; overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none; z-index:45;min-height:90px;align-items:flex-start;pointer-events:none; "></div> <!-- Toast --> <div id="dom-toast" style=" position:fixed;top:calc(env(safe-area-inset-top,0) + 56px); left:50%;transform:translateX(-50%); background:white;color:#1a0a00;padding:8px 16px;border-radius:14px; font-size:.8rem;pointer-events:none;opacity:0;transition:opacity .25s; z-index:9999;border:3px solid #1a0a00;white-space:nowrap; max-width:calc(100% - 20px);font-weight:900;box-shadow:4px 4px 0 #1a0a00; font-family:'Noto Sans TC',sans-serif; " id="toast"></div> <!-- Combo flash --> <div id="dom-combo" style=" position:fixed;top:50%;left:50%;transform:translate(-50%,-50%); color:white;font-size:1.6rem;font-weight:900; font-family:'Fredoka One',cursive;pointer-events:none;opacity:0; text-shadow:3px 3px 0 #1a0a00,0 0 20px rgba(245,158,11,.9); z-index:9998;transition:opacity .1s; "></div>`;
+}
+
+_panelHTML() {
+return `
+<!-- Shop sign overlay -->
+<div id="dom-sign" style="
+position:fixed;
+font-family:'Noto Sans TC',sans-serif;
+font-weight:900;font-size:.82rem;color:#1a0a00;
+text-align:center;pointer-events:none;
+z-index:46;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+text-shadow:none;letter-spacing:.5px;
+"></div>
+
+```
+<!-- Bottom Panel -->
+<div id="dom-panel" style="
+  position:fixed;bottom:0;left:0;right:0;
+  background:#1c1008;border-top:3px solid #1a0a00;
+  height:calc(235px + env(safe-area-inset-bottom,0px));
+  display:flex;flex-direction:column;
+  font-family:'Noto Sans TC',sans-serif;
+  z-index:50;
+">
+  <!-- Tabs -->
+  <div style="display:flex;border-bottom:3px solid #1a0a00;height:40px;background:#2d1a0a;flex-shrink:0">
+    <button class="ptab active" data-tab="cook"   onclick="window._gameScene?.switchPanel('cook')"  >🍳 製作</button>
+    <button class="ptab"        data-tab="staff"  onclick="window._gameScene?.switchPanel('staff')" >👨‍🍳 員工</button>
+    <button class="ptab"        data-tab="buy"    onclick="window._gameScene?.switchPanel('buy')"   >🛒 購買</button>
+    <button class="ptab"        data-tab="stats"  onclick="window._gameScene?.switchPanel('stats')" >📊 統計</button>
+  </div>
+  <!-- Content -->
+  <div id="tab-cook"  class="tab-pane active" style="overflow-y:auto;flex:1;padding:8px 10px"></div>
+  <div id="tab-staff" class="tab-pane"        style="overflow-y:auto;flex:1;padding:8px 10px;display:none"></div>
+  <div id="tab-buy"   class="tab-pane"        style="overflow-y:auto;flex:1;padding:8px 10px;display:none"></div>
+  <div id="tab-stats" class="tab-pane"        style="overflow-y:auto;flex:1;padding:8px 10px;display:none"></div>
+</div>
+
+<style>
+  .ptab{flex:1;border:none;background:transparent;color:#a08060;cursor:pointer;font-family:inherit;font-size:clamp(.64rem,3vw,.74rem);font-weight:900;border-bottom:3px solid transparent;border-right:1px solid rgba(255,255,255,.06);touch-action:manipulation}
+  .ptab:last-child{border-right:none}
+  .ptab.active{color:#fbbf24;border-bottom-color:#f59e0b;background:rgba(245,158,11,.08)}
+  .menu-grid-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:6px}
+  .menu-btn{
+    background:#fff8e7;border:3px solid #1a0a00;border-radius:10px;
+    padding:6px 3px;text-align:center;cursor:pointer;
+    min-height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    box-shadow:3px 3px 0 #1a0a00;touch-action:manipulation;
+    transition:transform .1s,box-shadow .1s;position:relative;
+  }
+  .menu-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #1a0a00}
+  .menu-btn.cooking{opacity:.6;pointer-events:none}
+  .menu-btn.wanted{border-color:#f59e0b!important;background:#fff8c0!important;box-shadow:3px 3px 0 #f59e0b!important;animation:wantedGlow .6s infinite alternate}
+  @keyframes wantedGlow{from{box-shadow:3px 3px 0 #f59e0b}to{box-shadow:3px 3px 0 #f97316,0 0 10px rgba(245,158,11,.5)}}
+  .menu-btn .me{font-size:1.4rem;display:block;margin-bottom:2px}
+  .menu-btn .mn{color:#1a0a00;font-size:.58rem;font-weight:900}
+  .menu-btn .mp{color:#f97316;font-size:.64rem;font-weight:900}
+  .menu-btn .mt{color:#a08060;font-size:.54rem}
+  .order-card-g{
+    pointer-events:all;
+    background:white;border:3px solid #1a0a00;border-radius:12px;
+    padding:5px 6px;min-width:68px;max-width:76px;text-align:center;flex-shrink:0;
+    box-shadow:3px 3px 0 #1a0a00;
+    transform:translateY(-14px) scale(.8);opacity:0;
+    transition:transform .3s,opacity .3s;
+  }
+  .order-card-g.oi{transform:translateY(0) scale(1);opacity:1}
+  .order-card-g.od{transform:translateY(-20px) scale(.7);opacity:0;border-color:#10b981;transition:all .3s}
+  .order-card-g.oe{transform:translateY(8px) scale(.8);opacity:0;border-color:#ef4444;transition:all .3s}
+  .order-card-g.urgent{animation:urgG .35s infinite alternate;border-color:#ef4444}
+  @keyframes urgG{from{box-shadow:3px 3px 0 #ef4444}to{box-shadow:3px 3px 0 #ef4444,0 0 10px rgba(239,68,68,.6)}}
+  .ot{height:4px;background:#e0d0b0;border:1px solid #1a0a00;border-radius:2px;overflow:hidden;margin-top:4px}
+  .otb{height:100%;width:100%;background:#22c55e;transition:width 1s linear,background .3s;border-radius:1px}
+  .staff-card{display:flex;align-items:center;gap:9px;background:#fff8e7;border:3px solid #1a0a00;border-radius:10px;padding:8px;box-shadow:3px 3px 0 #1a0a00;margin-bottom:7px}
+  .buy-card{display:flex;align-items:center;gap:9px;background:#fff8e7;border:3px solid #1a0a00;border-radius:10px;padding:8px;box-shadow:3px 3px 0 #1a0a00;margin-bottom:7px}
+  .game-btn{padding:7px 11px;border:3px solid #1a0a00;border-radius:8px;color:white;font-weight:900;font-size:.7rem;cursor:pointer;font-family:inherit;min-height:34px;box-shadow:3px 3px 0 #1a0a00;touch-action:manipulation}
+  .game-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #1a0a00}
+  .game-btn.green{background:#22c55e}
+  .game-btn.amber{background:#f59e0b}
+  .game-btn.red{background:#ef4444}
+  .game-btn:disabled{background:#9ca3af;cursor:not-allowed;transform:none;box-shadow:3px 3px 0 #1a0a00;opacity:.6}
+  .stat-g{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px}
+  .stat-card-g{background:#fff8e7;border:3px solid #1a0a00;border-radius:9px;padding:7px;text-align:center;box-shadow:3px 3px 0 #1a0a00}
+  .goal-card-g{background:#fff8e7;border:3px solid #1a0a00;border-radius:10px;padding:10px;box-shadow:3px 3px 0 #1a0a00}
+</style>
+`;
+```
+
+}
+
+_attachPanelEvents() {
+window._gameScene = this;
+this._buildMenuTab();
+this._buildStaffTab();
+this._buildBuyTab();
+this._buildStatsTab();
+this._updateDayBar();
+}
+
+// ══════════════════════════════
+//  MENU TAB
+// ══════════════════════════════
+_buildMenuTab() {
+const el = document.getElementById(‘tab-cook’); if (!el) return;
+el.innerHTML = `<div class="menu-grid-g" id="menu-grid-g"></div>`;
+const grid = document.getElementById(‘menu-grid-g’); if (!grid) return;
+GD.MENU.forEach(item => {
+const btn = document.createElement(‘div’);
+btn.className = ‘menu-btn’; btn.id = ‘mbtn-’ + item.id;
+btn.innerHTML = `<span class="me">${item.emoji}</span><div class="mn">${item.name}</div><div class="mp">$${item.price}</div><div class="mt">${item.time}秒</div>`;
+btn.onclick = () => this._cookItem(item);
+grid.appendChild(btn);
+});
+}
+
+// ══════════════════════════════
+//  STAFF TAB
+// ══════════════════════════════
+_buildStaffTab() {
+const el = document.getElementById(‘tab-staff’); if (!el) return;
+let html = ‘’;
+if (this.gs.hiredStaff.length) {
+html += ‘<div style="color:#fbbf24;font-size:.72rem;font-weight:900;margin-bottom:6px">✅ 在職員工</div>’;
+this.gs.hiredStaff.forEach((s, i) => {
+const cat = GD.STAFF.find(c => c.id === s.staffId); if (!cat) return;
+html += `<div class="staff-card"> <span style="font-size:1.4rem">${cat.emoji}</span> <div style="flex:1"> <div style="color:#1a0a00;font-size:.8rem;font-weight:900">${cat.name}</div> <div style="color:#7c3d00;font-size:.67rem;font-weight:700">${cat.desc}</div> <div style="color:#f97316;font-size:.68rem;font-weight:900">日薪 $${cat.salary}</div> </div> <button class="game-btn red" onclick="window._gameScene?._fireStaff(${i})">解雇</button> </div>`;
+});
+html += ‘<div style="color:#fbbf24;font-size:.72rem;font-weight:900;margin:8px 0 6px">💼 應徵員工</div>’;
+} else {
+html += ‘<div style="color:#fbbf24;font-size:.72rem;font-weight:900;margin-bottom:6px">💼 應徵員工</div>’;
+}
+GD.STAFF.forEach(cat => {
+const hired = this.gs.hiredStaff.some(s => s.staffId === cat.id);
+const canAfford = this.gs.money >= cat.salary * 2;
+html += `<div class="staff-card"> <span style="font-size:1.4rem">${cat.emoji}</span> <div style="flex:1"> <div style="color:#1a0a00;font-size:.8rem;font-weight:900">${cat.name} ${cat.badge}</div> <div style="color:#7c3d00;font-size:.67rem;font-weight:700">${cat.desc}</div> <div style="color:#f97316;font-size:.68rem;font-weight:900">日薪 $${cat.salary}</div> </div> <button class="game-btn ${hired||!canAfford?'':'amber'}" ${hired||!canAfford?'disabled':''} onclick="window._gameScene?._hireStaff('${cat.id}')"> ${hired?'已聘':canAfford?'聘用':'錢不足'} </button> </div>`;
+});
+el.innerHTML = html;
+}
+
+// ══════════════════════════════
+//  BUY TAB
+// ══════════════════════════════
+_buildBuyTab() {
+const el = document.getElementById(‘tab-buy’); if (!el) return;
+let html = ‘<div style="color:#fbbf24;font-size:.72rem;font-weight:900;margin-bottom:6px">🛒 購買設備（放入店面）</div>’;
+Object.entries(GD.EQUIP).filter(([, v]) => !v.free).forEach(([key, item]) => {
+const owned = this.gs.purchasedItems.includes(key);
+html += `<div class="buy-card"> <span style="font-size:1.4rem">${item.emoji}</span> <div style="flex:1"> <div style="color:#1a0a00;font-size:.8rem;font-weight:900">${item.name}${owned?' ✅':''}</div> <div style="color:#7c3d00;font-size:.67rem;font-weight:700">${item.desc}</div> <div style="color:#f97316;font-size:.7rem;font-weight:900">${owned?'已購買':'$'+item.cost.toLocaleString()}</div> </div> <button class="game-btn ${owned?'':'amber'}" ${owned?'disabled':''} onclick="window._gameScene?._buyEquip('${key}')"> ${owned?'擁有':'購買'} </button> </div>`;
+});
+el.innerHTML = html;
+}
+
+// ══════════════════════════════
+//  STATS TAB
+// ══════════════════════════════
+_buildStatsTab() {
+const el = document.getElementById(‘tab-stats’); if (!el) return;
+const gs = this.gs;
+const pct = gs.dayGoal > 0 ? Math.min(100, Math.floor(gs.dayRevenue / gs.dayGoal * 100)) : 0;
+el.innerHTML = `<div class="stat-g"> <div class="stat-card-g"><span>🏪</span><div style="color:#1a0a00;font-weight:900">${gs.branches.length}</div><div style="color:#7c3d00;font-size:.6rem">分店數</div></div> <div class="stat-card-g"><span>📦</span><div style="color:#1a0a00;font-weight:900">${gs.totalCooked}</div><div style="color:#7c3d00;font-size:.6rem">總銷售</div></div> <div class="stat-card-g"><span>💵</span><div style="color:#1a0a00;font-weight:900">$${gs.totalIncome.toLocaleString()}</div><div style="color:#7c3d00;font-size:.6rem">累積收入</div></div> <div class="stat-card-g"><span>⭐</span><div style="color:#1a0a00;font-weight:900">${gs.rating.toFixed(1)}</div><div style="color:#7c3d00;font-size:.6rem">評分</div></div> <div class="stat-card-g"><span>🔥</span><div style="color:#1a0a00;font-weight:900">${gs.bestCombo}</div><div style="color:#7c3d00;font-size:.6rem">最高Combo</div></div> <div class="stat-card-g"><span>👥</span><div style="color:#1a0a00;font-weight:900">${gs.hiredStaff.length}</div><div style="color:#7c3d00;font-size:.6rem">員工數</div></div> </div> <div class="goal-card-g"> <div style="color:#1a0a00;font-size:.82rem;font-weight:900;margin-bottom:6px">🏆 今日展店目標</div> <div style="display:flex;justify-content:space-between;font-size:.72rem;color:#7c3d00;margin-bottom:4px;font-weight:700"> <span>今日需達：<strong style="color:#f97316">$${gs.dayGoal.toLocaleString()}</strong></span> <span>已賺：<strong style="color:#22c55e">$${gs.dayRevenue.toLocaleString()}</strong></span> </div> <div style="height:14px;background:#e0d0b0;border:2px solid #1a0a00;border-radius:7px;overflow:hidden;position:relative;margin-bottom:7px"> <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#f59e0b,#22c55e);border-radius:5px;transition:width .8s"></div> <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#1a0a00;font-size:.6rem;font-weight:900">${pct}%</span> </div> <button id="btn-expand" class="game-btn amber" style="width:100%;min-height:40px" onclick="window._gameScene?.showMap()" ${this._canExpand()?'':'disabled'}> 🗺️ 前往開立分店 </button> </div>`;
+}
+
+// ══════════════════════════════
+//  GAME LOGIC
+// ══════════════════════════════
+_cookItem(item) {
+const btn = document.getElementById(‘mbtn-’ + item.id);
+if (btn?.classList.contains(‘cooking’)) return;
+if (btn) btn.classList.add(‘cooking’);
+
+```
+AudioEngine.SFX.sizzle();
+// Sizzle particles at shop cooking area
+const sl = this._shopLayout;
+if (sl) this.particles.burstSizzle(sl.bX + sl.bW * 0.7, sl.bY + 60);
+
+const spd = Math.max(0.2, 1 - (this._getSpeedBonus()));
+const ms = item.time * 1000 * spd;
+
+this.time.delayedCall(ms, () => {
+  if (btn) btn.classList.remove('cooking');
+  const fulfilled = this._fulfillOrder(item.id);
+  if (!fulfilled) {
+    const earned = Math.floor(item.price * 0.7);
+    this.gs.money += earned; this.gs.totalIncome += earned; this.gs.dayRevenue += earned;
+    this.gs.totalCooked++; this.gs.combo = 0;
+    AudioEngine.SFX.complete(); AudioEngine.SFX.coin();
+    this._toast(`${item.emoji} 零散販售 +$${earned}（無訂單）`, 1800);
+    if (sl) this.particles.burstCoin(sl.bX + sl.bW * 0.5, sl.bY + 40);
+    this._save(); this._refreshUI();
+  }
+});
+```
+
+}
+
+_startOrderSpawner() {
+this._spawnOrder();
+this._orderSpawnEvent = this.time.addEvent({
+delay: 4000, loop: true,
+callback: () => {
+if (this.activeOrders.length < GD.MAX_ORDERS && this.dayRunning) this._spawnOrder();
+}
+});
+}
+
+_spawnOrder() {
+if (!this.dayRunning) return;
+const item = GD.MENU[Math.floor(Math.random() * GD.MENU.length)];
+const cust = GD.CUST_EMOJIS[Math.floor(Math.random() * GD.CUST_EMOJIS.length)];
+const oid = ++this._orderIdCtr;
+const tmax = GD.ORDER_TIMER + (this.gs.purchasedItems.includes(‘tv’) ? 5 : 0);
+
+```
+// DOM card
+const card = document.createElement('div');
+card.className = 'order-card-g'; card.id = 'oc-' + oid;
+card.innerHTML = `
+  <div style="font-size:1rem;line-height:1;margin-bottom:2px">${cust}</div>
+  <div style="font-size:1.35rem;line-height:1">${item.emoji}</div>
+  <div style="color:#1a0a00;font-size:.56rem;font-weight:900;margin:2px 0 1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${item.name}</div>
+  <div style="color:#f97316;font-size:.6rem;font-weight:900">+$${item.price}</div>
+  <div class="ot"><div class="otb" id="otb-${oid}"></div></div>
+`;
+const row = document.getElementById('dom-orders');
+if (row) row.appendChild(card);
+requestAnimationFrame(() => card.classList.add('oi'));
+
+// Countdown
+let rem = tmax;
+const ti = this.time.addEvent({
+  delay: 1000, loop: true,
+  callback: () => {
+    rem--;
+    const bar = document.getElementById('otb-' + oid);
+    const pct = (rem / tmax) * 100;
+    if (bar) { bar.style.width = pct + '%'; bar.style.background = pct > 50 ? '#22c55e' : pct > 25 ? '#f59e0b' : '#ef4444'; }
+    if (rem <= 5) card.classList.add('urgent');
+    if (rem <= 0) { ti.remove(); this._expireOrder(oid); }
+  }
+});
+
+this.activeOrders.push({ id: oid, item, cust, timerEvent: ti, el: card, rem: tmax, tmax });
+AudioEngine.SFX.doorbell();
+this.addCustomer({ id: oid, item, cust });
+this._updateWanted();
+```
+
+}
+
+_expireOrder(oid) {
+const idx = this.activeOrders.findIndex(o => o.id === oid); if (idx < 0) return;
+const o = this.activeOrders[idx];
+o.timerEvent?.remove();
+o.el.classList.add(‘oe’);
+setTimeout(() => o.el?.remove(), 400);
+this.activeOrders.splice(idx, 1);
+this.gs.combo = 0; this.gs.rating = Math.max(1, this.gs.rating - 0.1);
+this.angryCustomer(oid);
+AudioEngine.SFX.timeout();
+const sl = this._shopLayout;
+if (sl) this.particles.burstExpire(sl.bX + sl.bW * 0.3, sl.bY + 60);
+this._toast(‘😤 顧客等太久走了！’, 1600);
+this._save(); this._refreshUI(); this._updateWanted();
+}
+
+_fulfillOrder(itemId) {
+const idx = this.activeOrders.findIndex(o => o.item.id === itemId); if (idx < 0) return false;
+const o = this.activeOrders[idx];
+o.timerEvent?.remove();
+const speedPct = o.rem / o.tmax;
+const bonus = speedPct > 0.6 ? Math.floor(o.item.price * 0.3) : 0;
+const earned = o.item.price + bonus;
+this.gs.money += earned; this.gs.totalIncome += earned; this.gs.dayRevenue += earned;
+this.gs.totalCooked++; this.gs.xp += o.item.xp;
+this.gs.combo = (this.gs.combo || 0) + 1;
+if (this.gs.combo > this.gs.bestCombo) this.gs.bestCombo = this.gs.combo;
+
+```
+o.el.classList.add('od');
+setTimeout(() => o.el?.remove(), 400);
+this.activeOrders.splice(idx, 1);
+
+this.serveCustomer(o.id);
+AudioEngine.SFX.correct(); AudioEngine.SFX.coin();
+
+// Particles
+const sl = this._shopLayout;
+if (sl) {
+  this.particles.burstComplete(sl.bX + sl.bW * 0.5, sl.bY + 50);
+  if (bonus > 0) this.particles.burstCoin(sl.bX + sl.bW * 0.6, sl.bY + 40);
+}
+
+const msg = bonus > 0 ? `${o.item.emoji} 快速送餐！+$${earned}（獎勵$${bonus}）` : `${o.item.emoji} ${o.item.name} 完成！+$${earned}`;
+this._toast(msg, 1800);
+if (this.gs.combo >= 3) this._showCombo(this.gs.combo);
+
+// Level check
+const nt = DB.getTitle(this.gs.totalIncome);
+if (nt.level > this.gs.level) {
+  this.gs.level = nt.level;
+  AudioEngine.SFX.levelUp();
+  if (sl) this.particles.burstLevelUp(this.W * 0.5, this.H * 0.4);
+  this.cameras.main.flash(300, 255, 215, 0);
+  setTimeout(() => this._toast(`🎊 升級！「${nt.title}」Lv.${nt.level}！`, 3000), 400);
+}
+
+this._save(); this._refreshUI(); this._updateWanted();
+return true;
+```
+
+}
+
+_hireStaff(staffId) {
+const cat = GD.STAFF.find(c => c.id === staffId); if (!cat) return;
+if (this.gs.hiredStaff.some(s => s.staffId === staffId)) { this._toast(‘⚠️ 已聘用此員工’); return; }
+const deposit = cat.salary * 2;
+if (this.gs.money < deposit) { this._toast(`💸 需要 $${deposit}（兩天薪資保證金）`); return; }
+this.gs.money -= deposit;
+this.gs.hiredStaff.push({ staffId, branch: this.gs.activeBranchIdx });
+AudioEngine.SFX.hire ? AudioEngine.SFX.hire() : AudioEngine.SFX.complete();
+this._toast(`✅ 已聘用 ${cat.name}！`);
+this._save(); this._refreshUI(); this._startAutoServe();
+this._buildStaffTab();
+}
+
+_fireStaff(idx) {
+const s = this.gs.hiredStaff[idx]; if (!s) return;
+const cat = GD.STAFF.find(c => c.id === s.staffId);
+this.gs.hiredStaff.splice(idx, 1);
+this._toast(`👋 ${cat?.name || '員工'} 已離職`);
+this._save(); this._refreshUI(); this._startAutoServe();
+this._buildStaffTab();
+}
+
+_buyEquip(key) {
+const it = GD.EQUIP[key]; if (!it || it.free) return;
+if (this.gs.purchasedItems.includes(key)) { this._toast(‘⚠️ 已購買’); return; }
+if (this.gs.money < it.cost) { this._toast(‘💸 金錢不足！’); return; }
+this.gs.money -= it.cost;
+this.gs.purchasedItems.push(key);
+AudioEngine.SFX.place();
+this._toast(`✅ 購買「${it.name}」成功！`);
+const sl = this._shopLayout;
+if (sl) this.particles.burstCoin(this.W * 0.5, sl.bY + 40);
+this._save(); this._refreshUI();
+this._buildBuyTab();
+}
+
+_startAutoServe() {
+this.autoServeTimers.forEach(e => e.remove());
+this.autoServeTimers = [];
+this.gs.hiredStaff.forEach(s => {
+const cat = GD.STAFF.find(c => c.id === s.staffId);
+if (cat?.autoServe && cat.autoInterval) {
+const ev = this.time.addEvent({
+delay: cat.autoInterval * 1000, loop: true,
+callback: () => {
+if (this.activeOrders.length > 0) {
+this._fulfillOrder(this.activeOrders[0].item.id);
+}
+}
+});
+this.autoServeTimers.push(ev);
+}
+});
+}
+
+_startPassiveIncome() {
+this.time.addEvent({
+delay: 30000, loop: true,
+callback: () => {
+if (this.gs.branches.length <= 1) return;
+let passive = 0;
+this.gs.branches.slice(1).forEach(b => {
+const c = GD.CITIES[b.cityId]; if (c) passive += Math.floor(c.passive / 120);
+});
+if (passive > 0) {
+this.gs.money += passive; this.gs.totalIncome += passive;
+this._toast(`💼 分店被動 +$${passive}`, 1200);
+this._save(); this._refreshUI();
+}
+}
+});
+}
+
+_endDay() {
+if (this._dayEnded) return; this._dayEnded = true;
+AudioEngine.SFX.dayEnd();
+// Stop orders
+this._orderSpawnEvent?.remove();
+this.activeOrders.forEach(o => { o.timerEvent?.remove(); o.el?.remove(); });
+this.activeOrders.length = 0;
+// Pay staff
+let salary = 0;
+this.gs.hiredStaff.forEach(s => { const c = GD.STAFF.find(x => x.id === s.staffId); if (c) salary += c.salary; });
+this.gs.money = Math.max(0, this.gs.money - salary);
+const metGoal = this.gs.dayRevenue >= this.gs.dayGoal;
+const pct = this.gs.dayGoal > 0 ? Math.min(100, Math.floor(this.gs.dayRevenue / this.gs.dayGoal * 100)) : 100;
+// Update branch progress
+if (metGoal) {
+GD.EXPAND.forEach(e => {
+if (!this.gs.branches.find(b => b.cityId === e.cityId)) {
+if (this.gs.dayRevenue >= e.dayRevTarget * GD.BRANCH_PCT) {
+this.gs.branchProgress[e.cityId] = (this.gs.branchProgress[e.cityId] || 0) + 1;
+}
+}
+});
+}
+this._save();
+this.cameras.main.fade(400, 0, 0, 0);
+this.time.delayedCall(600, () => this._showDayEndModal(metGoal, pct, salary));
+}
+
+_showDayEndModal(metGoal, pct, salary) {
+const overlay = document.getElementById(‘ui-overlay’); if (!overlay) return;
+const modal = document.createElement(‘div’);
+modal.style.cssText = ‘position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .3s’;
+modal.innerHTML = `<style>@keyframes fadeIn{from{opacity:0}to{opacity:1}}</style> <div style="background:white;border:4px solid #1a0a00;border-radius:20px;padding:24px;text-align:center;width:100%;max-width:310px;box-shadow:8px 8px 0 #1a0a00;font-family:'Noto Sans TC',sans-serif"> <div style="font-size:3rem;margin-bottom:8px;filter:drop-shadow(3px 3px 0 rgba(0,0,0,.3))">${metGoal ? '🎊' : '😓'}</div> <div style="color:#1a0a00;font-size:1.3rem;font-weight:900;margin-bottom:8px">第 ${this.gs.dayCount} 天結束</div> <div style="color:#7c3d00;font-size:.84rem;font-weight:700;line-height:1.7;margin-bottom:14px"> 今日營收：<strong style="color:#f97316">$${this.gs.dayRevenue.toLocaleString()}</strong><br> 今日目標：<strong style="color:#1a0a00">$${this.gs.dayGoal.toLocaleString()}</strong><br> 達成率：<strong style="color:${metGoal ? '#22c55e' : '#ef4444'}">${pct}%</strong><br> ${salary > 0 ?`員工薪資：<strong style="color:#ef4444">-$${salary}</strong><br>` : ''} ${metGoal ? '<span style="color:#22c55e">🎉 目標達成！展店進度增加！</span>' : '<span>💪 繼續加油！</span>'} </div> <button onclick="window._gameScene?._nextDay(this.closest('[style*=fixed]'))" style=" width:100%;padding:13px;background:linear-gradient(135deg,#f59e0b,#f97316); border:3px solid #1a0a00;border-radius:12px;color:white;font-weight:900;font-size:.95rem; cursor:pointer;font-family:inherit;box-shadow:4px 4px 0 #1a0a00; ">前往第 ${this.gs.dayCount + 1} 天 →</button> </div>`;
+overlay.appendChild(modal);
+}
+
+_nextDay(modalEl) {
+modalEl?.remove();
+this.gs.dayCount++;
+this.gs.dayRevenue = 0;
+const br = this._getShop();
+if (br) this.gs.dayGoal = Math.floor((GD.CITIES[br.cityId]?.avgPrice || 40) * 50 * (1 + this.gs.branches.length * 0.1));
+this.dayTimer = GD.DAY_DURATION / 1000;
+this.dayRunning = true; this._dayEnded = false;
+this._save(); this._refreshUI();
+AudioEngine.SFX.dayStart();
+this.cameras.main.flash(400, 255, 248, 220);
+this._startOrderSpawner();
+this._startAutoServe();
+}
+
+// ══════════════════════════════
+//  UI HELPERS
+// ══════════════════════════════
+switchPanel(tab) {
+AudioEngine.SFX.tap();
+document.querySelectorAll(’.ptab’).forEach(b => b.classList.toggle(‘active’, b.dataset.tab === tab));
+[‘cook’,‘staff’,‘buy’,‘stats’].forEach(t => {
+const el = document.getElementById(‘tab-’ + t);
+if (el) el.style.display = t === tab ? ‘block’ : ‘none’;
+});
+if (tab === ‘stats’) this._buildStatsTab();
+if (tab === ‘staff’) this._buildStaffTab();
+if (tab === ‘buy’)   this._buildBuyTab();
+}
+
+_refreshUI() {
+const gs = this.gs;
+const td = DB.getTitle(gs.totalIncome);
+this._setText(‘hud-money’, gs.money.toLocaleString());
+this._setText(‘hud-name’, gs.charName);
+this._setText(‘hud-lv’, td.level);
+this._updateDayBar();
+this._refreshShopSign();
+}
+
+_updateDayBar() {
+const total = GD.DAY_DURATION / 1000;
+const pct = Math.max(0, (1 - this.dayTimer / total)) * 100;
+const fill = document.getElementById(‘dom-dayfill’);
+if (fill) fill.style.width = pct + ‘%’;
+const m = Math.floor(this.dayTimer / 60), s = Math.floor(this.dayTimer % 60);
+this._setText(‘dom-daytime’, (m < 10 ? ‘0’ : ‘’) + m + ‘:’ + (s < 10 ? ‘0’ : ‘’) + s);
+this._setText(‘dom-daygoal’, ‘$’ + (this.gs.dayGoal || 0).toLocaleString());
+this._setText(‘dom-dayearned’, ‘$’ + (this.gs.dayRevenue || 0).toLocaleString());
+}
+
+_refreshShopSign() {
+const sign = document.getElementById(‘dom-sign’); if (!sign) return;
+const sl = this._shopLayout;
+if (!sl) { sign.style.display = ‘none’; return; }
+const shop = this._getShop();
+const name = shop?.shopName || (this.gs.charName + ‘的早餐店’);
+const safeT = parseInt(getComputedStyle(document.documentElement).getPropertyValue(’–safe-t’) || ‘0’) || 0;
+sign.textContent = name;
+sign.style.cssText = `position:fixed; left:${sl.bX}px;top:${sl.bY + 18}px; width:${sl.bW}px;height:28px;line-height:28px; font-family:'Noto Sans TC',sans-serif; font-weight:900;font-size:.8rem;color:#1a0a00; text-align:center;pointer-events:none;z-index:46; overflow:hidden;text-overflow:ellipsis;white-space:nowrap; letter-spacing:.5px;`;
+}
+
+_updateWanted() {
+GD.MENU.forEach(item => {
+const btn = document.getElementById(‘mbtn-’ + item.id); if (!btn) return;
+btn.classList.toggle(‘wanted’, this.activeOrders.some(o => o.item.id === item.id));
+});
+}
+
+_setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+_toast(msg, dur = 2000) {
+const t = document.getElementById(‘toast’) || document.getElementById(‘dom-toast’);
+if (!t) return;
+if (this._toastTimer) clearTimeout(this._toastTimer);
+t.textContent = msg; t.style.opacity = ‘1’;
+this._toastTimer = setTimeout(() => { t.style.opacity = ‘0’; }, dur);
+}
+
+_showCombo(n) {
+const el = document.getElementById(‘dom-combo’); if (!el) return;
+el.textContent = `🔥 COMBO ×${n}!`;
+el.style.opacity = ‘1’;
+el.style.transform = ‘translate(-50%,-50%) scale(1.2)’;
+setTimeout(() => { el.style.opacity = ‘0’; el.style.transform = ‘translate(-50%,-50%) scale(1)’; }, 900);
+}
+
+showMap() {
+AudioEngine.SFX.tap();
+this._toast(‘🗺️ 展店功能（敬請期待完整版）’, 2000);
+}
+
+showProfile() {
+AudioEngine.SFX.tap();
+this._toast(‘👤 個人資料（敬請期待完整版）’, 2000);
+}
+
+toggleMusicBtn(btn) {
+const on = AudioEngine.toggleMusic();
+if (btn) btn.textContent = on ? ‘🎵’ : ‘🔇’;
+}
+
+// ══════════════════════════════
+//  HELPERS
+// ══════════════════════════════
+_getShop() { return this.gs.branches[this.gs.activeBranchIdx] || this.gs.branches[0]; }
+_getSpeedBonus() {
+let spd = 0;
+this.gs.hiredStaff.forEach(s => { const c = GD.STAFF.find(x => x.id === s.staffId); if (c) spd += c.speed || 0; });
+if (this.gs.purchasedItems.includes(‘fridge’)) spd += 0.15;
+return Math.min(0.8, spd);
+}
+_canExpand() {
+return GD.EXPAND.some(e => {
+if (this.gs.branches.find(b => b.cityId === e.cityId)) return false;
+return (this.gs.branchProgress[e.cityId] || 0) >= e.daysNeeded;
+});
+}
+_save() { DB.save(this.gs); }
+
+_ensureShopReady() {
+if (!this.gs.branches || this.gs.branches.length === 0) {
+// Auto-create a default shop
+const cityId = ‘taipei’;
+const city = GD.CITIES[cityId];
+const layout = new Array(GD.FLOOR_COLS * GD.FLOOR_ROWS).fill(null);
+layout[0] = ‘cashier’; layout[1] = ‘stove’;
+layout[6] = ‘table1’;  layout[7] = ‘table1’;
+layout[12] = ‘counter’;
+this.gs.branches = [{
+cityId, cityName: city.name,
+shopName: this.gs.charName + ‘的台北早餐店’,
+layout, dayRevHistory: [], passive: city.passive,
+}];
+this.gs.dayGoal = city.avgPrice * 50;
+this.gs.activeBranchIdx = 0;
+}
+// Ensure layout not empty
+const br = this._getShop();
+if (br && (!br.layout || br.layout.filter(x => x !== null).length === 0)) {
+const layout = new Array(30).fill(null);
+layout[0] = ‘cashier’; layout[1] = ‘stove’;
+layout[6] = ‘table1’; layout[7] = ‘table1’;
+layout[12] = ‘counter’;
+br.layout = layout;
+}
+this._save();
+}
+
+_handleTap(x, y) {
+// Future: tap on shop cells
+}
+
+shutdown() {
+window._gameScene = null;
+const overlay = document.getElementById(‘ui-overlay’);
+if (overlay) { overlay.innerHTML = ‘’; overlay.classList.remove(‘interactive’); }
+this.autoServeTimers.forEach(e => e.remove());
+this._orderSpawnEvent?.remove();
+this._dayTimerEvent?.remove();
+AudioEngine.stopBGM();
+}
+}
+/* ═══════════════════════════════════
+UIScene.js — Overlay UI Scene
+(Runs in parallel with GameScene)
+═══════════════════════════════════ */
+class UIScene extends Phaser.Scene {
+constructor() { super({ key: ‘UIScene’, active: false }); }
+
+create() {
+// UIScene runs on top of GameScene
+// All actual UI is DOM-based (see GameScene._buildDOMPanel)
+// This scene can be used for Phaser-native HUD elements if needed
+this.gameScene = this.scene.get(‘GameScene’);
+}
+
+update() {
+// Forward daybar updates
+if (this.gameScene && this.gameScene.dayRunning) {
+this.gameScene._updateDayBar();
+}
+}
+}
+/* ═══════════════════════════════════
+LOGIN.JS — DOM Login Logic
+═══════════════════════════════════ */
+function showLoginDOM() {
+const el = document.getElementById(‘login-screen’);
+if (el) el.classList.remove(‘hidden’);
+}
+
+function switchLoginTab(tab) {
+document.querySelectorAll(’.tab-btn’).forEach(b => b.classList.remove(‘active’));
+document.querySelectorAll(’.tab-pane’).forEach(p => p.classList.remove(‘active’));
+document.querySelector(`.tab-btn[onclick="switchLoginTab('${tab}')"]`)?.classList.add(‘active’);
+document.getElementById(‘pane-’ + tab)?.classList.add(‘active’);
+AudioEngine.SFX.tap();
+}
+
+function doLogin() {
+AudioEngine.resume();
+const email = document.getElementById(‘li-email’)?.value.trim() || ‘demo@demo.com’;
+let users = {};
+try { users = JSON.parse(localStorage.getItem(‘bk2_users’) || ‘{}’); } catch(e) {}
+let user = Object.values(users).find(u => u.email === email);
+if (!user) {
+user = { id: DB.genId(), email, name: email.split(’@’)[0] };
+users[user.id] = user;
+localStorage.setItem(‘bk2_users’, JSON.stringify(users));
+}
+localStorage.setItem(‘bk2_lastuser’, JSON.stringify(user));
+const saved = DB.load(user.id);
+const state = saved || DB.freshState();
+state.user = user;
+if (!saved) DB.save(state);
+window.initPhaser(state);
+}
+
+function doRegister() {
+AudioEngine.resume();
+const name  = document.getElementById(‘rg-name’)?.value.trim();
+const email = document.getElementById(‘rg-email’)?.value.trim();
+const pass  = document.getElementById(‘rg-pass’)?.value;
+if (!name || !email || !pass) { alert(‘請填寫所有欄位’); return; }
+if (pass.length < 6) { alert(‘密碼至少6字元’); return; }
+let users = {};
+try { users = JSON.parse(localStorage.getItem(‘bk2_users’) || ‘{}’); } catch(e) {}
+if (Object.values(users).find(u => u.email === email)) { alert(‘此信箱已被使用’); return; }
+const user = { id: DB.genId(), email, name };
+users[user.id] = user;
+localStorage.setItem(‘bk2_users’, JSON.stringify(users));
+localStorage.setItem(‘bk2_lastuser’, JSON.stringify(user));
+const state = DB.freshState();
+state.user = user;
+DB.save(state);
+window.initPhaser(state);
+}
+
+function doFBLogin() {
+AudioEngine.resume();
+let fbId = localStorage.getItem(‘bk2_fb_id’);
+if (!fbId) { fbId = ‘FB’ + DB.genId(); localStorage.setItem(‘bk2_fb_id’, fbId); }
+const u = { id: fbId, email: ‘fb_’ + fbId + ‘@fb.com’, name: ‘Facebook用戶’ };
+let users = {};
+try { users = JSON.parse(localStorage.getItem(‘bk2_users’) || ‘{}’); } catch(e) {}
+users[fbId] = u;
+localStorage.setItem(‘bk2_users’, JSON.stringify(users));
+localStorage.setItem(‘bk2_lastuser’, JSON.stringify(u));
+const saved = DB.load(fbId) || DB.freshState();
+saved.user = u;
+window.initPhaser(saved);
+}
+
+// Auto-login on load
+window.addEventListener(‘load’, () => {
+try {
+const lu = JSON.parse(localStorage.getItem(‘bk2_lastuser’));
+if (lu?.id) {
+const saved = DB.load(lu.id);
+if (saved && saved.branches?.length > 0) {
+saved.user = lu;
+setTimeout(() => {
+const ls = document.getElementById(‘loading-screen’);
+if (ls) ls.classList.add(‘hidden’);
+window.initPhaser(saved);
+}, 1300);
+return;
+}
+}
+} catch(e) {}
+// Show login after load animation
+});
+/* ═══════════════════════════════════
+MAIN.JS — Phaser 3 Game Config
+═══════════════════════════════════ */
+
+// Shared game state (persists across scenes)
+window.GAME_STATE = DB.freshState();
+window.ACTIVE_ORDERS = [];
+window.ORDER_ID_CTR = 0;
+
+// ── Loading progress simulation ──
+function setLoadProgress(pct, text) {
+const bar = document.getElementById(‘load-bar’);
+const txt = document.getElementById(‘load-text’);
+if (bar) bar.style.width = pct + ‘%’;
+if (txt) txt.textContent = text;
+}
+
+setLoadProgress(20, ‘初始化音效引擎…’);
+setTimeout(() => setLoadProgress(45, ‘載入遊戲資源…’), 300);
+setTimeout(() => setLoadProgress(70, ‘建構渲染管線…’), 600);
+setTimeout(() => setLoadProgress(90, ‘準備場景系統…’), 900);
+
+setTimeout(() => {
+setLoadProgress(100, ‘就緒！’);
+setTimeout(() => {
+const ls = document.getElementById(‘loading-screen’);
+if (ls) ls.classList.add(‘hidden’);
+// Show login DOM
+showLoginDOM();
+}, 400);
+}, 1200);
+
+// ── Phaser Config ──
+const config = {
+type: Phaser.AUTO,
+width: Math.min(window.innerWidth, 430),
+height: window.innerHeight,
+parent: ‘game-container’,
+backgroundColor: ‘#0d0600’,
+antialias: true,
+powerPreference: ‘high-performance’,
+scene: [BootScene, GameScene, UIScene],
+scale: {
+mode: Phaser.Scale.FIT,
+autoCenter: Phaser.Scale.CENTER_BOTH,
+},
+render: {
+pixelArt: false,
+antialias: true,
+antialiasGL: true,
+},
+};
+
+// Init Phaser after login
+window.initPhaser = function(userState) {
+Object.assign(window.GAME_STATE, userState);
+// Hide login DOM
+const loginEl = document.getElementById(‘login-screen’);
+if (loginEl) loginEl.classList.add(‘hidden’);
+
+if (!window._phaserGame) {
+window._phaserGame = new Phaser.Game(config);
+} else {
+window._phaserGame.scene.start(‘GameScene’);
+}
+};
