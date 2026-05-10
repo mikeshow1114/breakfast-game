@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a0a00">
+<title>早安小老闆 | 台灣早餐連鎖夢</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== SCREEN: LOGIN ===== -->
+<div id="screen-login" class="screen active">
+  <div class="login-bg">
+    <div class="floating-emoji" style="--x:10%;--y:20%;--d:3s">🥚</div>
+    <div class="floating-emoji" style="--x:80%;--y:10%;--d:4s">🥓</div>
+    <div class="floating-emoji" style="--x:60%;--y:70%;--d:5s">🍳</div>
+    <div class="floating-emoji" style="--x:25%;--y:80%;--d:3.5s">🥐</div>
+    <div class="floating-emoji" style="--x:90%;--y:60%;--d:4.5s">☕</div>
+    <div class="floating-emoji" style="--x:45%;--y:15%;--d:2.5s">🧇</div>
+  </div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">🍳</div>
+      <h1>早安小老闆</h1>
+      <p class="logo-sub">從一間早餐店，到全台灣的夢想</p>
+    </div>
+    <div id="login-form">
+      <div class="form-tabs">
+        <button class="tab-btn active" onclick="switchTab('login')">登入</button>
+        <button class="tab-btn" onclick="switchTab('register')">註冊</button>
+      </div>
+      <div id="tab-login" class="tab-content active">
+        <div class="input-group">
+          <label>📧 電子信箱</label>
+          <input type="email" id="login-email" placeholder="your@email.com">
+        </div>
+        <div class="input-group">
+          <label>🔒 密碼</label>
+          <input type="password" id="login-password" placeholder="••••••••">
+        </div>
+        <button class="btn-primary" onclick="doLogin()">🚀 開始賺錢！</button>
+        <div class="divider"><span>或者</span></div>
+        <button class="btn-facebook" onclick="doFacebookLogin()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
+          用 Facebook 登入
+        </button>
+      </div>
+      <div id="tab-register" class="tab-content">
+        <div class="input-group">
+          <label>👤 暱稱</label>
+          <input type="text" id="reg-name" placeholder="小老闆的名字">
+        </div>
+        <div class="input-group">
+          <label>📧 電子信箱</label>
+          <input type="email" id="reg-email" placeholder="your@email.com">
+        </div>
+        <div class="input-group">
+          <label>🔒 密碼</label>
+          <input type="password" id="reg-password" placeholder="至少6個字元">
+        </div>
+        <button class="btn-primary" onclick="doRegister()">✨ 創建帳號</button>
+        <div class="divider"><span>或者</span></div>
+        <button class="btn-facebook" onclick="doFacebookLogin()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
+          用 Facebook 註冊
+        </button>
+      </div>
+    </div>
+    <div class="demo-hint">💡 Demo：直接點「開始賺錢」即可體驗</div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: CHARACTER SELECT ===== -->
+<div id="screen-char" class="screen">
+  <div class="char-bg"></div>
+  <div class="char-container">
+    <h2 class="char-title">選擇你的角色</h2>
+    <p class="char-sub">選一個代表你的小老闆！</p>
+    <div class="char-grid">
+      <div class="char-card" onclick="selectChar('boy')" id="char-boy">
+        <div class="char-avatar boy-avatar">
+          <div class="avatar-body"></div>
+          <div class="avatar-head">
+            <div class="avatar-face">
+              <div class="eyes"><span></span><span></span></div>
+              <div class="mouth"></div>
+            </div>
+            <div class="boy-hair"></div>
+          </div>
+          <div class="chef-hat">👨‍🍳</div>
+        </div>
+        <div class="char-emoji-big">👦</div>
+        <h3>小明</h3>
+        <p>活潑好動的男孩<br>廚藝加成 +10%</p>
+        <div class="char-stats">
+          <div class="stat"><span>廚藝</span><div class="bar"><div style="width:70%"></div></div></div>
+          <div class="stat"><span>魅力</span><div class="bar"><div style="width:55%"></div></div></div>
+          <div class="stat"><span>體力</span><div class="bar"><div style="width:85%"></div></div></div>
+        </div>
+      </div>
+      <div class="char-card" onclick="selectChar('girl')" id="char-girl">
+        <div class="char-emoji-big">👧</div>
+        <h3>小美</h3>
+        <p>聰明伶俐的女孩<br>顧客滿意度 +10%</p>
+        <div class="char-stats">
+          <div class="stat"><span>廚藝</span><div class="bar"><div style="width:60%"></div></div></div>
+          <div class="stat"><span>魅力</span><div class="bar"><div style="width:90%"></div></div></div>
+          <div class="stat"><span>體力</span><div class="bar"><div style="width:70%"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="char-name-input" id="char-name-section" style="display:none">
+      <label>替你的小老闆取個名字：</label>
+      <input type="text" id="char-name" placeholder="輸入名字..." maxlength="8">
+      <button class="btn-primary" onclick="confirmChar()">🎉 出發！開始夢想！</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: MAIN GAME ===== -->
+<div id="screen-game" class="screen">
+  <!-- TOP HUD -->
+  <div class="hud-top">
+    <div class="hud-left">
+      <div class="player-info" onclick="showScreen('screen-profile')">
+        <div class="player-avatar-small" id="hud-avatar">👦</div>
+        <div>
+          <div class="player-name" id="hud-name">小老闆</div>
+          <div class="player-level">Lv.<span id="hud-level">1</span> 初學廚師</div>
+        </div>
+      </div>
+    </div>
+    <div class="hud-center">
+      <div class="money-display">
+        <span class="money-icon">💰</span>
+        <span id="hud-money">0</span>
+        <span class="money-unit">元</span>
+      </div>
+    </div>
+    <div class="hud-right">
+      <button class="hud-btn" onclick="showScreen('screen-map')">🗺️ 地圖</button>
+      <button class="hud-btn" onclick="showScreen('screen-friends')">👫 好友</button>
+    </div>
+  </div>
+
+  <!-- SHOP VIEW -->
+  <div class="shop-scene">
+    <div class="shop-exterior">
+      <div class="shop-sign">
+        <span id="shop-sign-name">小明的早餐店</span>
+      </div>
+      <div class="shop-window">
+        <div class="customer-queue" id="customer-queue"></div>
+      </div>
+      <div class="shop-counter">
+        <div class="cooking-station" id="cooking-station">
+          <div class="stove">🍳</div>
+          <div class="cooking-items" id="cooking-items"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM PANEL -->
+  <div class="bottom-panel">
+    <div class="panel-tabs">
+      <button class="panel-tab active" onclick="switchPanel('cook')">🍳 製作</button>
+      <button class="panel-tab" onclick="switchPanel('shop')">🏪 商店</button>
+      <button class="panel-tab" onclick="switchPanel('stats')">📊 統計</button>
+    </div>
+
+    <!-- COOK PANEL -->
+    <div id="panel-cook" class="panel-content active">
+      <div class="menu-grid" id="menu-grid">
+        <!-- filled by JS -->
+      </div>
+      <div class="daily-summary">
+        <div class="summary-item">
+          <span>今日訂單</span>
+          <strong id="daily-orders">0</strong>
+        </div>
+        <div class="summary-item">
+          <span>今日收入</span>
+          <strong id="daily-income">$0</strong>
+        </div>
+        <div class="summary-item">
+          <span>目標進度</span>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="goal-bar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOP PANEL -->
+    <div id="panel-shop" class="panel-content">
+      <h3 style="color:#f59e0b;margin:0 0 10px">🛒 升級裝備</h3>
+      <div class="upgrade-list" id="upgrade-list">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+    <!-- STATS PANEL -->
+    <div id="panel-stats" class="panel-content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🏪</div>
+          <div class="stat-label">分店數量</div>
+          <div class="stat-value" id="stat-branches">1</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📦</div>
+          <div class="stat-label">總銷售量</div>
+          <div class="stat-value" id="stat-total-sold">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">💵</div>
+          <div class="stat-label">累積收入</div>
+          <div class="stat-value" id="stat-total-income">$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-label">店家評分</div>
+          <div class="stat-value" id="stat-rating">4.0</div>
+        </div>
+      </div>
+      <div class="branch-goal-card">
+        <h4>🏆 下一間分店目標</h4>
+        <div class="goal-info">
+          <span>需要累積收入：</span>
+          <strong id="next-goal-amount">$50,000</strong>
+        </div>
+        <div class="big-progress">
+          <div class="big-progress-fill" id="big-progress-fill" style="width:0%"></div>
+          <span id="big-progress-text">0%</span>
+        </div>
+        <button class="btn-map" id="btn-open-branch" onclick="showScreen('screen-map')" disabled>
+          🗺️ 前往選址開立分店
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: MAP ===== -->
+<div id="screen-map" class="screen">
+  <div class="map-header">
+    <button class="back-btn" onclick="showScreen('screen-game')">← 返回</button>
+    <h2>🗺️ 台灣展店地圖</h2>
+    <div class="map-money">💰 <span id="map-money">0</span>元</div>
+  </div>
+  <div class="taiwan-map-container">
+    <svg id="taiwan-map" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
+      <!-- Taiwan simplified shape -->
+      <defs>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- Taiwan island body -->
+      <path d="M200,30 C220,28 245,35 260,55 C280,80 285,110 280,140 C290,160 295,185 290,210 C300,240 302,270 295,300 C300,330 298,360 285,385 C275,405 260,420 245,430 C230,445 215,455 200,460 C185,455 170,445 158,430 C143,420 130,405 120,385 C108,360 105,330 110,300 C103,270 105,240 115,210 C108,185 112,160 122,140 C116,110 122,80 142,55 C158,35 180,28 200,30Z" 
+            fill="#4ade80" stroke="#16a34a" stroke-width="2" opacity="0.9"/>
+      <!-- Cities markers -->
+      <!-- Taipei -->
+      <circle id="city-taipei" cx="205" cy="90" r="12" fill="#f59e0b" stroke="white" stroke-width="2" class="city-dot" onclick="selectCity('taipei')" cursor="pointer"/>
+      <text x="222" y="94" fill="white" font-size="11" font-weight="bold">台北</text>
+      <!-- New Taipei -->
+      <circle id="city-newtaipei" cx="195" cy="115" r="10" fill="#6b7280" stroke="white" stroke-width="2" class="city-dot locked" onclick="selectCity('newtaipei')" cursor="pointer"/>
+      <text x="210" y="119" fill="#d1d5db" font-size="10">新北</text>
+      <!-- Taoyuan -->
+      <circle id="city-taoyuan" cx="175" cy="135" r="10" fill="#6b7280" stroke="white" stroke-width="2" class="city-dot locked" onclick="selectCity('taoyuan')" cursor="pointer"/>
+      <text x="155" y="132" fill="#d1d5db" font-size="10">桃園</text>
+      <!-- Hsinchu -->
+      <circle id="city-hsinchu" cx="162" cy="165" r="10" fill="#6b7280" stroke="white" stroke-width="2" class="city-dot locked" onclick="selectCity('hsinchu')" cursor="pointer"/>
+      <text x="135" y="162" fill="#d1d5db" font-size="10">新竹</text>
+      <!-- Taichung -->
+      <circle id="city-taichung" cx="168" cy="255" r="12" fill="#6b7280" stroke="white" stroke-width="2" class="city-dot locked" onclick="selectCity('taichung')" cursor="pointer"/>
+      <text x="145" y="252" fill="#d1d5db" font-size="10">台中</text>
+      <!-- Tainan -->
+      <circle id="city-tainan" cx="172" cy="360" r="11" fill="#6b7280" stroke="white" stroke-width="2" class="city-dot locked" onclick="selectCity('tainan')" cursor="pointer"/>
+      <text x="148" y="357" fill="#d1d5db" font-size="10">台南</text>
+      <!-- Kaohsiung -->
+      <circle id="city-kaohsiung" cx="185" cy="405" r="12" fill="#6b7280" stroke="white" stroke-width="2" class="city-dot locked" onclick="selectCity('kaohsiung')" cursor="pointer"/>
+      <text x="160" y="402" fill="#d1d5db" font-size="10">高雄</text>
+      <!-- Hualien -->
+      <circle id="city-hualien" cx="255" cy="240" r="10" fill="#6b7280" stroke="white" stroke-width="2" class="city-dot locked" onclick="selectCity('hualien')" cursor="pointer"/>
+      <text x="268" y="244" fill="#d1d5db" font-size="10">花蓮</text>
+    </svg>
+  </div>
+  <div id="city-popup" class="city-popup" style="display:none">
+    <h3 id="popup-city-name">台北</h3>
+    <p id="popup-city-desc">繁華的首都，人潮最多的城市</p>
+    <div class="popup-info">
+      <span>開店成本：<strong id="popup-cost">$30,000</strong></span>
+      <span>預估日收：<strong id="popup-income">$3,000</strong></span>
+    </div>
+    <div class="popup-status" id="popup-status">✅ 已開店</div>
+    <button class="btn-primary" id="popup-btn" onclick="openBranch()">開立分店</button>
+    <button class="btn-secondary" onclick="hideCityPopup()">關閉</button>
+  </div>
+</div>
+
+<!-- ===== SCREEN: FRIENDS ===== -->
+<div id="screen-friends" class="screen">
+  <div class="map-header">
+    <button class="back-btn" onclick="showScreen('screen-game')">← 返回</button>
+    <h2>👫 好友系統</h2>
+  </div>
+  <div class="friends-container">
+    <div class="my-id-card">
+      <div class="id-label">我的帳號 ID（分享給好友加你）</div>
+      <div class="my-id" id="my-account-id">載入中...</div>
+      <button onclick="copyId()" class="btn-copy">📋 複製 ID</button>
+    </div>
+    <div class="add-friend-section">
+      <h3>➕ 加入好友</h3>
+      <div class="add-friend-row">
+        <input type="text" id="friend-id-input" placeholder="輸入好友的帳號 ID">
+        <button onclick="addFriend()" class="btn-add">加入</button>
+      </div>
+    </div>
+    <div class="friends-list-section">
+      <h3>👥 好友列表</h3>
+      <div id="friends-list" class="friends-list">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: VISIT FRIEND ===== -->
+<div id="screen-visit" class="screen">
+  <div class="map-header">
+    <button class="back-btn" onclick="showScreen('screen-friends')">← 返回</button>
+    <h2 id="visit-title">參觀好友的店</h2>
+  </div>
+  <div class="visit-container">
+    <div class="friend-shop-scene">
+      <div class="friend-shop-sign" id="friend-shop-sign">好友的早餐店</div>
+      <div class="friend-shop-interior">
+        <div class="friend-char" id="friend-char">👦</div>
+        <div class="speech-bubble" id="friend-speech">歡迎光臨！我的早餐超好吃！</div>
+      </div>
+    </div>
+    <div class="visit-actions">
+      <button class="visit-btn" onclick="giveReview()">⭐ 給好評（+50元獎勵）</button>
+      <button class="visit-btn" onclick="buyItem()">🥪 購買早餐（花費30元）</button>
+      <button class="visit-btn" onclick="sendGift()">🎁 送禮物</button>
+    </div>
+    <div class="friend-stats-view">
+      <div class="fstat"><span>分店數</span><strong id="fstat-branches">1</strong></div>
+      <div class="fstat"><span>等級</span><strong id="fstat-level">1</strong></div>
+      <div class="fstat"><span>評分</span><strong id="fstat-rating">4.0</strong></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: PROFILE ===== -->
+<div id="screen-profile" class="screen">
+  <div class="map-header">
+    <button class="back-btn" onclick="showScreen('screen-game')">← 返回</button>
+    <h2>👤 個人資料</h2>
+  </div>
+  <div class="profile-container">
+    <div class="profile-hero">
+      <div class="profile-avatar" id="profile-avatar">👦</div>
+      <div class="profile-name" id="profile-name">小明</div>
+      <div class="profile-title" id="profile-title">初學廚師</div>
+    </div>
+    <div class="profile-stats">
+      <div class="pstat"><span>💰 總資金</span><strong id="pstat-money">$0</strong></div>
+      <div class="pstat"><span>🏪 分店數</span><strong id="pstat-branches">1</strong></div>
+      <div class="pstat"><span>⭐ 等級</span><strong id="pstat-level">1</strong></div>
+      <div class="pstat"><span>🍳 總製作</span><strong id="pstat-cooked">0</strong></div>
+    </div>
+    <div class="achievement-section">
+      <h3>🏆 成就</h3>
+      <div class="achievement-list" id="achievement-list"></div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">🚪 登出</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+<!-- COOKING ANIMATION -->
+<div id="cook-anim" class="cook-anim" style="display:none"></div>
+
+<script src="game.js"></script>
+</body>
+</html>
