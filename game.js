@@ -1606,37 +1606,35 @@ window.initPhaser(saved);
 }
 
 // Auto-login on load
-window.addEventListener(‘DOMContentLoaded’, () => {
-// Start loading animation
-setLoadProgress(20, ‘初始化音效引擎…’);
-setTimeout(() => setLoadProgress(45, ‘載入遊戲資源…’), 300);
-setTimeout(() => setLoadProgress(70, ‘建構渲染管線…’), 600);
-setTimeout(() => setLoadProgress(90, ‘準備場景系統…’), 900);
+// Called automatically when game.js finishes loading (Phaser already loaded)
+(function initGame() {
+function hideLoading(cb) {
+const ls = document.getElementById(‘loading-screen’);
+if (ls) { ls.style.opacity = ‘0’; setTimeout(() => { ls.style.display = ‘none’; if(cb) cb(); }, 400); }
+else { if(cb) cb(); }
+}
+
+setLoadProgress(60, ‘初始化遊戲系統…’);
+setTimeout(() => setLoadProgress(85, ‘準備場景系統…’), 200);
+setTimeout(() => setLoadProgress(100, ‘就緒！’), 500);
 
 setTimeout(() => {
-setLoadProgress(100, ‘就緒！’);
-setTimeout(() => {
-// Check auto-login
+// Auto-login check
 try {
 const lu = JSON.parse(localStorage.getItem(‘bk2_lastuser’));
 if (lu?.id) {
 const saved = DB.load(lu.id);
 if (saved && saved.branches?.length > 0) {
 saved.user = lu;
-const ls = document.getElementById(‘loading-screen’);
-if (ls) { ls.style.opacity=‘0’; setTimeout(()=>ls.style.display=‘none’,400); }
-window.initPhaser(saved);
+hideLoading(() => window.initPhaser(saved));
 return;
 }
 }
 } catch(e) {}
-// Show login screen
-const ls = document.getElementById(‘loading-screen’);
-if (ls) { ls.style.opacity=‘0’; setTimeout(()=>ls.style.display=‘none’,400); }
-showLoginDOM();
-}, 400);
-}, 1200);
-});
+// Show login
+hideLoading(showLoginDOM);
+}, 700);
+})();
 /* ═══════════════════════════════════
 MAIN.JS — Phaser 3 Game Config
 ═══════════════════════════════════ */
