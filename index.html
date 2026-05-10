@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -7,411 +8,176 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1a0a00">
 <title>早安小老闆</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{
+    width:100%;height:100%;
+    overflow:hidden;
+    background:#000;
+    font-family:'Noto Sans TC',sans-serif;
+    position:fixed;
+    touch-action:none;
+  }
+  #game-container{
+    width:100%;height:100%;
+    display:flex;justify-content:center;align-items:center;
+  }
+  /* DOM UI overlay (login / modal) */
+  #ui-overlay{
+    position:fixed;inset:0;
+    pointer-events:none;
+    z-index:100;
+  }
+  #ui-overlay.interactive{ pointer-events:all; }
+
+/* Login card (DOM, shown before Phaser loads) */
+#login-screen{
+position:fixed;inset:0;
+background:linear-gradient(160deg,#0d0600 0%,#1f0c00 60%,#0d0600 100%);
+display:flex;justify-content:center;align-items:center;
+z-index:200;
+transition:opacity .6s ease;
+}
+#login-screen.hidden{opacity:0;pointer-events:none}
+
+.login-card{
+background:rgba(255,248,220,.06);
+border:1px solid rgba(245,158,11,.3);
+border-radius:20px;
+padding:28px 24px;
+width:min(360px,calc(100% - 32px));
+box-shadow:0 0 60px rgba(245,158,11,.15),0 20px 40px rgba(0,0,0,.6);
+backdrop-filter:blur(20px);
+}
+.logo-wrap{text-align:center;margin-bottom:24px}
+.logo-emoji{
+font-size:3rem;display:block;margin-bottom:8px;
+animation:logoBob 1.2s ease infinite alternate;
+filter:drop-shadow(0 0 12px rgba(245,158,11,.8));
+}
+@keyframes logoBob{from{transform:translateY(0) rotate(-4deg)}to{transform:translateY(-8px) rotate(4deg)}}
+.logo-title{
+font-size:1.8rem;font-weight:900;
+background:linear-gradient(135deg,#fbbf24,#f97316,#fbbf24);
+background-size:200% auto;
+-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+animation:shine 3s linear infinite;
+font-family:‘Fredoka One’,cursive;
+text-shadow:none;
+}
+@keyframes shine{to{background-position:200% center}}
+.logo-sub{color:#d97706;font-size:.8rem;margin-top:4px}
+
+.tabs{display:flex;background:rgba(0,0,0,.3);border-radius:10px;padding:3px;margin-bottom:16px}
+.tab-btn{flex:1;padding:9px;border:none;background:transparent;color:#9ca3af;border-radius:8px;cursor:pointer;font-family:inherit;font-size:.88rem;font-weight:700;transition:.2s;min-height:40px}
+.tab-btn.active{background:linear-gradient(135deg,#f59e0b,#f97316);color:white}
+.tab-pane{display:none}.tab-pane.active{display:block}
+
+.field{margin-bottom:12px}
+.field label{display:block;color:#fbbf24;font-size:.76rem;margin-bottom:4px;font-weight:700}
+.field input{
+width:100%;padding:11px 13px;
+background:rgba(0,0,0,.4);border:1px solid rgba(251,191,36,.35);
+border-radius:10px;color:white;font-family:inherit;font-size:.9rem;
+outline:none;-webkit-appearance:none;min-height:44px;
+transition:.2s;
+}
+.field input:focus{border-color:#f59e0b;background:rgba(0,0,0,.6)}
+.field input::placeholder{color:#6b7280}
+
+.btn-glow{
+width:100%;padding:13px;margin-top:4px;
+background:linear-gradient(135deg,#f59e0b,#f97316);
+border:none;border-radius:12px;color:white;font-weight:900;
+font-size:.95rem;cursor:pointer;font-family:inherit;min-height:48px;
+box-shadow:0 0 20px rgba(249,115,22,.5),0 4px 12px rgba(0,0,0,.4);
+transition:.2s;letter-spacing:.5px;
+}
+.btn-glow:active{transform:scale(.97);box-shadow:0 0 10px rgba(249,115,22,.4)}
+.divider{text-align:center;margin:14px 0;position:relative;color:#6b7280;font-size:.8rem}
+.divider::before,.divider::after{content:’’;position:absolute;top:50%;width:38%;height:1px;background:rgba(255,255,255,.1)}
+.divider::before{left:0}.divider::after{right:0}
+.btn-fb{
+width:100%;padding:12px;background:#1877f2;border:none;border-radius:12px;
+color:white;font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit;
+display:flex;align-items:center;justify-content:center;gap:10px;min-height:44px;
+transition:.2s;
+}
+.btn-fb:active{background:#1464d8;transform:scale(.97)}
+.demo-note{text-align:center;margin-top:12px;color:#6b7280;font-size:.72rem;padding:8px;border:1px dashed rgba(245,158,11,.2);border-radius:8px}
+
+/* Loading bar */
+#loading-screen{
+position:fixed;inset:0;background:#000;
+display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;
+z-index:300;transition:opacity .5s ease;
+}
+#loading-screen.hidden{opacity:0;pointer-events:none}
+.load-icon{font-size:3rem;animation:logoBob 1s ease infinite alternate;filter:drop-shadow(0 0 20px #f97316)}
+.load-title{color:#fbbf24;font-size:1.2rem;font-weight:900;font-family:‘Fredoka One’,cursive}
+.load-bar-wrap{width:200px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;border:1px solid rgba(245,158,11,.3)}
+.load-bar{height:100%;background:linear-gradient(90deg,#f59e0b,#f97316);border-radius:3px;transition:width .3s ease;width:0%}
+.load-text{color:#6b7280;font-size:.78rem}
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Fredoka+One&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ══════════════════════════════════
-     SCREEN: LOGIN
-══════════════════════════════════ -->
-<div id="screen-login" class="screen active">
-  <div class="login-bg">
-    <span class="fe" style="--x:8%;--y:18%;--d:3s">🥚</span>
-    <span class="fe" style="--x:78%;--y:12%;--d:4s">🥓</span>
-    <span class="fe" style="--x:55%;--y:68%;--d:5s">🍳</span>
-    <span class="fe" style="--x:22%;--y:78%;--d:3.5s">🥐</span>
-    <span class="fe" style="--x:88%;--y:55%;--d:4.5s">☕</span>
-    <span class="fe" style="--x:42%;--y:12%;--d:2.5s">🧇</span>
-  </div>
+<!-- Loading Screen -->
+
+<div id="loading-screen">
+  <div class="load-icon">🍳</div>
+  <div class="load-title">早安小老闆</div>
+  <div class="load-bar-wrap"><div class="load-bar" id="load-bar"></div></div>
+  <div class="load-text" id="load-text">載入遊戲引擎...</div>
+</div>
+
+<!-- Login Screen (DOM) -->
+
+<div id="login-screen" class="hidden">
   <div class="login-card">
-    <div class="login-logo">
-      <span class="logo-icon">🍳</span>
-      <h1>早安小老闆</h1>
-      <p>從一間早餐店，征服全台灣</p>
+    <div class="logo-wrap">
+      <span class="logo-emoji">🍳</span>
+      <div class="logo-title">早安小老闆</div>
+      <div class="logo-sub">從一間早餐店，征服全台灣</div>
     </div>
-    <div class="form-tabs">
-      <button class="tab-btn active" onclick="switchTab('login')">登入</button>
-      <button class="tab-btn" onclick="switchTab('register')">註冊</button>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchLoginTab('login')">登入</button>
+      <button class="tab-btn" onclick="switchLoginTab('register')">註冊</button>
     </div>
-    <div id="tab-login" class="tab-content active">
-      <div class="inp-g"><label>📧 信箱</label><input type="email" id="li-email" placeholder="your@email.com"></div>
-      <div class="inp-g"><label>🔒 密碼</label><input type="password" id="li-pass" placeholder="••••••••"></div>
-      <button class="btn-primary" onclick="doLogin()">🚀 開始賺錢！</button>
-      <div class="divider"><span>或</span></div>
+    <div id="pane-login" class="tab-pane active">
+      <div class="field"><label>📧 信箱</label><input type="email" id="li-email" placeholder="your@email.com"></div>
+      <div class="field"><label>🔒 密碼</label><input type="password" id="li-pass" placeholder="••••••••"></div>
+      <button class="btn-glow" onclick="doLogin()">🚀 開始賺錢！</button>
+      <div class="divider">或</div>
       <button class="btn-fb" onclick="doFBLogin()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
         Facebook 登入
       </button>
     </div>
-    <div id="tab-register" class="tab-content">
-      <div class="inp-g"><label>👤 暱稱</label><input type="text" id="rg-name" placeholder="小老闆名字"></div>
-      <div class="inp-g"><label>📧 信箱</label><input type="email" id="rg-email" placeholder="your@email.com"></div>
-      <div class="inp-g"><label>🔒 密碼</label><input type="password" id="rg-pass" placeholder="至少6字元"></div>
-      <button class="btn-primary" onclick="doRegister()">✨ 創建帳號</button>
+    <div id="pane-register" class="tab-pane">
+      <div class="field"><label>👤 暱稱</label><input type="text" id="rg-name" placeholder="小老闆的名字"></div>
+      <div class="field"><label>📧 信箱</label><input type="email" id="rg-email" placeholder="your@email.com"></div>
+      <div class="field"><label>🔒 密碼</label><input type="password" id="rg-pass" placeholder="至少6字元"></div>
+      <button class="btn-glow" onclick="doRegister()">✨ 創建帳號</button>
     </div>
-    <div class="demo-hint">💡 直接點「開始賺錢」可快速體驗</div>
+    <div class="demo-note">💡 直接點「開始賺錢」可快速體驗</div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     SCREEN: CHARACTER SELECT
-══════════════════════════════════ -->
-<div id="screen-char" class="screen">
-  <div class="screen-header"><h2>👤 選擇角色</h2></div>
-  <div class="char-container">
-    <p class="sub-text">選一個代表你的小老闆！</p>
-    <div class="char-grid">
-      <div class="char-card" id="char-boy" onclick="selectChar('boy')">
-        <span class="char-emoji">👦</span>
-        <h3>小明</h3>
-        <p>烹飪速度 +10%</p>
-        <div class="char-bars">
-          <div class="cbar"><span>廚藝</span><div class="bar"><div style="width:70%"></div></div></div>
-          <div class="cbar"><span>體力</span><div class="bar"><div style="width:85%"></div></div></div>
-          <div class="cbar"><span>魅力</span><div class="bar"><div style="width:55%"></div></div></div>
-        </div>
-      </div>
-      <div class="char-card" id="char-girl" onclick="selectChar('girl')">
-        <span class="char-emoji">👧</span>
-        <h3>小美</h3>
-        <p>顧客滿意 +10%</p>
-        <div class="char-bars">
-          <div class="cbar"><span>廚藝</span><div class="bar"><div style="width:60%"></div></div></div>
-          <div class="cbar"><span>體力</span><div class="bar"><div style="width:70%"></div></div></div>
-          <div class="cbar"><span>魅力</span><div class="bar"><div style="width:90%"></div></div></div>
-        </div>
-      </div>
-    </div>
-    <div id="char-name-row" style="display:none" class="char-name-row">
-      <input type="text" id="char-name-input" placeholder="輸入名字…" maxlength="8">
-      <button class="btn-primary" onclick="confirmChar()">🎉 出發！</button>
-    </div>
-  </div>
-</div>
+<!-- Phaser Canvas Container -->
 
-<!-- ══════════════════════════════════
-     SCREEN: PICK LOCATION (地圖選址)
-══════════════════════════════════ -->
-<div id="screen-pick-location" class="screen">
-  <div class="screen-header">
-    <h2>📍 選擇你的第一間店面</h2>
-    <p class="sub-text" style="color:#94a3b8;font-size:.8rem;margin-top:2px">點擊城市選擇開店地點</p>
-  </div>
-  <div class="taiwan-map-wrap">
-    <svg id="tw-map" viewBox="0 0 400 580" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <radialGradient id="islandGrad" cx="50%" cy="45%" r="55%">
-          <stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/>
-        </radialGradient>
-      </defs>
-      <path d="M200,28 C222,26 248,34 264,56 C282,82 288,114 282,144 C292,166 298,190 292,216 C302,246 304,276 296,306 C302,336 300,366 286,392 C276,412 260,428 244,438 C228,452 212,462 198,462 C184,458 168,448 154,436 C140,424 126,408 116,390 C104,364 102,334 108,304 C100,272 102,244 114,214 C106,188 110,162 122,142 C114,112 120,80 142,56 C158,34 178,26 200,28Z"
-        fill="url(#islandGrad)" stroke="#15803d" stroke-width="2"/>
-      <!-- City dots with larger hit area -->
-      <g id="cities-layer">
-        <circle cx="205" cy="88"  r="15" fill="transparent" onclick="pickCity('taipei')"    class="city-hit"/>
-        <circle cx="205" cy="88"  r="11" fill="#f59e0b" stroke="white" stroke-width="2.5" id="dot-taipei"    class="city-dot available"/>
-        <text x="220" y="93" class="city-lbl" fill="white">台北</text>
+<div id="game-container"></div>
+<!-- DOM UI Overlay for Phaser -->
+<div id="ui-overlay"></div>
 
-        <circle cx="192" cy="116" r="14" fill="transparent" onclick="pickCity('newtaipei')" class="city-hit"/>
-        <circle cx="192" cy="116" r="10" fill="#f59e0b" stroke="white" stroke-width="2" id="dot-newtaipei" class="city-dot available"/>
-        <text x="206" y="120" class="city-lbl" fill="white">新北</text>
+<!-- Phaser 3 -->
 
-        <circle cx="172" cy="138" r="14" fill="transparent" onclick="pickCity('taoyuan')"   class="city-hit"/>
-        <circle cx="172" cy="138" r="10" fill="#f59e0b" stroke="white" stroke-width="2" id="dot-taoyuan"   class="city-dot available"/>
-        <text x="145" y="135" class="city-lbl" fill="white">桃園</text>
-
-        <circle cx="160" cy="167" r="13" fill="transparent" onclick="pickCity('hsinchu')"   class="city-hit"/>
-        <circle cx="160" cy="167" r="9"  fill="#f59e0b" stroke="white" stroke-width="2" id="dot-hsinchu"   class="city-dot available"/>
-        <text x="130" y="164" class="city-lbl" fill="white">新竹</text>
-
-        <circle cx="168" cy="256" r="14" fill="transparent" onclick="pickCity('taichung')"  class="city-hit"/>
-        <circle cx="168" cy="256" r="11" fill="#f59e0b" stroke="white" stroke-width="2" id="dot-taichung"  class="city-dot available"/>
-        <text x="138" y="252" class="city-lbl" fill="white">台中</text>
-
-        <circle cx="171" cy="362" r="13" fill="transparent" onclick="pickCity('tainan')"    class="city-hit"/>
-        <circle cx="171" cy="362" r="10" fill="#f59e0b" stroke="white" stroke-width="2" id="dot-tainan"    class="city-dot available"/>
-        <text x="144" y="358" class="city-lbl" fill="white">台南</text>
-
-        <circle cx="184" cy="406" r="14" fill="transparent" onclick="pickCity('kaohsiung')" class="city-hit"/>
-        <circle cx="184" cy="406" r="11" fill="#f59e0b" stroke="white" stroke-width="2" id="dot-kaohsiung" class="city-dot available"/>
-        <text x="154" y="402" class="city-lbl" fill="white">高雄</text>
-
-        <circle cx="256" cy="242" r="13" fill="transparent" onclick="pickCity('hualien')"   class="city-hit"/>
-        <circle cx="256" cy="242" r="9"  fill="#f59e0b" stroke="white" stroke-width="2" id="dot-hualien"   class="city-dot available"/>
-        <text x="270" y="246" class="city-lbl" fill="white">花蓮</text>
-      </g>
-    </svg>
-  </div>
-  <!-- City info popup -->
-  <div id="location-popup" class="location-popup" style="display:none">
-    <div class="lp-top">
-      <span class="lp-city" id="lp-city">台北</span>
-      <span class="lp-badge" id="lp-badge">🔥 熱門</span>
-    </div>
-    <p class="lp-desc" id="lp-desc">首都繁華商圈，人潮最多</p>
-    <div class="lp-stats">
-      <div class="lps"><span>每日人潮</span><strong id="lp-traffic">高</strong></div>
-      <div class="lps"><span>租金</span><strong id="lp-rent">免費</strong></div>
-      <div class="lps"><span>客單價</span><strong id="lp-price">$40</strong></div>
-    </div>
-    <button class="btn-primary" onclick="confirmLocation()">📍 在這裡開店！</button>
-    <button class="btn-sec" onclick="closeLPopup()">取消</button>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════
-     SCREEN: SHOP SETUP (室內裝潢)
-══════════════════════════════════ -->
-<div id="screen-setup" class="screen">
-  <div class="screen-header">
-    <h2>🏠 佈置你的早餐店</h2>
-    <p class="sub-text" style="color:#94a3b8;font-size:.78rem;margin-top:2px">拖曳或點擊放置設備</p>
-  </div>
-  <!-- Floor grid -->
-  <div class="setup-area">
-    <div class="shop-floor" id="shop-floor">
-      <!-- 6x5 grid cells -->
-    </div>
-    <div class="setup-toolbar">
-      <div class="toolbar-label">免費設備（必放）</div>
-      <div class="free-items" id="free-items"></div>
-      <div class="toolbar-label" style="margin-top:8px">已放置</div>
-      <div class="placed-summary" id="placed-summary"></div>
-    </div>
-  </div>
-  <div class="setup-footer">
-    <div class="setup-hint" id="setup-hint">請放置收銀台、廚具和至少一張桌子</div>
-    <button class="btn-primary" id="btn-start-biz" onclick="startBusiness()" disabled>🎉 開始營業！</button>
-  </div>
-  <!-- Item picker overlay -->
-  <div id="cell-picker" class="cell-picker" style="display:none">
-    <div class="cp-title">選擇放置的設備</div>
-    <div class="cp-items" id="cp-items"></div>
-    <button class="btn-sec" onclick="closeCellPicker()">取消</button>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════
-     SCREEN: MAIN GAME
-══════════════════════════════════ -->
-<div id="screen-game" class="screen">
-  <!-- HUD -->
-  <div class="hud">
-    <div class="hud-left" onclick="goProfile()">
-      <span class="hud-avatar" id="hud-avatar">👦</span>
-      <div class="hud-text">
-        <div class="hud-name" id="hud-name">小老闆</div>
-        <div class="hud-lv">Lv.<span id="hud-lv">1</span> <span id="hud-title">初學廚師</span></div>
-      </div>
-    </div>
-    <div class="hud-money">
-      <span>💰</span><span id="hud-money">500</span><span>元</span>
-    </div>
-    <div class="hud-btns">
-      <button class="hbtn" id="btn-music" onclick="toggleMusic()">🎵</button>
-      <button class="hbtn" onclick="showScreen('screen-map-expand')">🗺️</button>
-      <button class="hbtn" onclick="showScreen('screen-friends')">👫</button>
-    </div>
-  </div>
-
-  <!-- DAY TIMER BAR -->
-  <div class="day-bar-wrap">
-    <div class="day-bar-inner">
-      <span class="day-label">⏰ 營業中</span>
-      <div class="day-track"><div class="day-fill" id="day-fill"></div></div>
-      <span class="day-time" id="day-time">30:00</span>
-    </div>
-    <div class="day-income-row">
-      <span>今日營收：<strong id="day-income">$0</strong></span>
-      <span>目標：<strong id="day-goal">$0</strong></span>
-    </div>
-  </div>
-
-  <!-- SHOP INTERIOR VIEW -->
-  <div class="interior-view" id="interior-view">
-    <!-- rendered from shop layout -->
-  </div>
-
-  <!-- ORDERS ROW -->
-  <div class="orders-row" id="orders-row"></div>
-
-  <!-- BOTTOM PANEL -->
-  <div class="bottom-panel">
-    <div class="panel-tabs">
-      <button class="ptab active" onclick="switchTab2('cook')">🍳 製作</button>
-      <button class="ptab" onclick="switchTab2('staff')">👨‍🍳 員工</button>
-      <button class="ptab" onclick="switchTab2('shop')">🛒 購買</button>
-      <button class="ptab" onclick="switchTab2('stats')">📊 統計</button>
-    </div>
-    <!-- COOK -->
-    <div id="tab2-cook" class="tab2-content active">
-      <div class="menu-grid" id="menu-grid"></div>
-    </div>
-    <!-- STAFF -->
-    <div id="tab2-staff" class="tab2-content">
-      <div class="staff-panel" id="staff-panel"></div>
-    </div>
-    <!-- SHOP (buy equipment) -->
-    <div id="tab2-shop" class="tab2-content">
-      <div class="buy-panel" id="buy-panel"></div>
-    </div>
-    <!-- STATS -->
-    <div id="tab2-stats" class="tab2-content">
-      <div class="stats-wrap">
-        <div class="scard"><span>🏪</span><div class="sv" id="st-branches">1</div><div class="sl">分店數</div></div>
-        <div class="scard"><span>📦</span><div class="sv" id="st-sold">0</div><div class="sl">總銷售</div></div>
-        <div class="scard"><span>💵</span><div class="sv" id="st-income">$0</div><div class="sl">累積收入</div></div>
-        <div class="scard"><span>⭐</span><div class="sv" id="st-rating">4.0</div><div class="sl">評分</div></div>
-        <div class="scard"><span>👥</span><div class="sv" id="st-staff">0</div><div class="sl">員工數</div></div>
-        <div class="scard"><span>🔥</span><div class="sv" id="st-combo">0</div><div class="sl">最高Combo</div></div>
-      </div>
-      <div class="goal-card">
-        <h4>🏆 展店目標</h4>
-        <div class="gc-row"><span>今日需達：</span><strong id="gc-need">$0</strong></div>
-        <div class="gc-row"><span>今日已賺：</span><strong id="gc-earned">$0</strong></div>
-        <div class="gc-bar"><div class="gc-fill" id="gc-fill"></div><span id="gc-pct">0%</span></div>
-        <button class="btn-map" id="btn-open-branch" onclick="showScreen('screen-map-expand')" disabled>🗺️ 前往開立分店</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════
-     SCREEN: MAP EXPAND (展店)
-══════════════════════════════════ -->
-<div id="screen-map-expand" class="screen">
-  <div class="screen-header">
-    <button class="back-btn" onclick="showScreen('screen-game')">← 返回</button>
-    <h2>🗺️ 展店地圖</h2>
-    <span class="hdr-money">💰<span id="me-money">0</span>元</span>
-  </div>
-  <div class="taiwan-map-wrap">
-    <svg id="tw-map2" viewBox="0 0 400 580" xmlns="http://www.w3.org/2000/svg">
-      <defs><filter id="glow2"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-      <path d="M200,28 C222,26 248,34 264,56 C282,82 288,114 282,144 C292,166 298,190 292,216 C302,246 304,276 296,306 C302,336 300,366 286,392 C276,412 260,428 244,438 C228,452 212,462 198,462 C184,458 168,448 154,436 C140,424 126,408 116,390 C104,364 102,334 108,304 C100,272 102,244 114,214 C106,188 110,162 122,142 C114,112 120,80 142,56 C158,34 178,26 200,28Z"
-        fill="url(#islandGrad)" stroke="#15803d" stroke-width="2"/>
-      <g id="expand-cities"></g>
-    </svg>
-  </div>
-  <div id="expand-popup" class="location-popup" style="display:none">
-    <div class="lp-top"><span class="lp-city" id="ep-city">台北</span><span class="lp-badge" id="ep-status">🔒 鎖定</span></div>
-    <p class="lp-desc" id="ep-desc"></p>
-    <div class="lp-stats">
-      <div class="lps"><span>開店費用</span><strong id="ep-cost">$0</strong></div>
-      <div class="lps"><span>被動收入</span><strong id="ep-passive">$0/30s</strong></div>
-    </div>
-    <div id="ep-condition" class="ep-condition"></div>
-    <button class="btn-primary" id="ep-btn" onclick="openBranch()">開立分店</button>
-    <button class="btn-sec" onclick="closeExpandPopup()">關閉</button>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════
-     SCREEN: FRIENDS
-══════════════════════════════════ -->
-<div id="screen-friends" class="screen">
-  <div class="screen-header">
-    <button class="back-btn" onclick="showScreen('screen-game')">← 返回</button>
-    <h2>👫 好友系統</h2>
-  </div>
-  <div class="friends-body">
-    <div class="my-id-card">
-      <div class="id-lbl">我的 ID（分享給好友）</div>
-      <div class="my-id" id="my-id">---</div>
-      <button class="btn-copy" onclick="copyId()">📋 複製</button>
-    </div>
-    <div class="section-title">➕ 加入好友</div>
-    <div class="add-row">
-      <input type="text" id="friend-id-inp" placeholder="輸入好友 ID">
-      <button class="btn-add" onclick="addFriend()">加入</button>
-    </div>
-    <div class="section-title">👥 好友列表</div>
-    <div id="friends-list"></div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════
-     SCREEN: VISIT FRIEND
-══════════════════════════════════ -->
-<div id="screen-visit" class="screen">
-  <div class="screen-header">
-    <button class="back-btn" onclick="showScreen('screen-friends')">← 返回</button>
-    <h2 id="visit-title">參觀好友的店</h2>
-  </div>
-  <div class="visit-body">
-    <div class="visit-scene">
-      <div class="vs-sign" id="vs-sign">好友的早餐店</div>
-      <div class="vs-inside">
-        <span class="vs-char" id="vs-char">👦</span>
-        <div class="vs-bubble" id="vs-bubble">歡迎光臨！</div>
-      </div>
-    </div>
-    <div class="visit-actions">
-      <button class="vbtn" onclick="giveReview()">⭐ 給好評（+$50）</button>
-      <button class="vbtn" onclick="buyItem()">🥪 買早餐（-$30）</button>
-      <button class="vbtn" onclick="sendGift()">🎁 送禮物（-$100）</button>
-    </div>
-    <div class="visit-stats">
-      <div class="vstat"><span>分店數</span><strong id="vs-branches">1</strong></div>
-      <div class="vstat"><span>等級</span><strong id="vs-level">1</strong></div>
-      <div class="vstat"><span>評分</span><strong id="vs-rating">4.0</strong></div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════
-     SCREEN: PROFILE
-══════════════════════════════════ -->
-<div id="screen-profile" class="screen">
-  <div class="screen-header">
-    <button class="back-btn" onclick="showScreen('screen-game')">← 返回</button>
-    <h2>👤 個人資料</h2>
-  </div>
-  <div class="profile-body">
-    <div class="prof-hero">
-      <span class="prof-avatar" id="prof-avatar">👦</span>
-      <div class="prof-name" id="prof-name">小明</div>
-      <div class="prof-title" id="prof-title">初學廚師</div>
-    </div>
-    <div class="prof-stats">
-      <div class="ps"><span>💰 資金</span><strong id="ps-money">$0</strong></div>
-      <div class="ps"><span>🏪 分店</span><strong id="ps-branches">1</strong></div>
-      <div class="ps"><span>⭐ 等級</span><strong id="ps-level">1</strong></div>
-      <div class="ps"><span>🍳 製作</span><strong id="ps-cooked">0</strong></div>
-    </div>
-    <div class="ach-section">
-      <div class="section-title">🏆 成就</div>
-      <div id="ach-list" class="ach-list"></div>
-    </div>
-    <button class="btn-logout" onclick="doLogout()">🚪 登出</button>
-  </div>
-</div>
-
-<!-- GLOBAL OVERLAYS -->
-<div id="toast" class="toast"></div>
-<div id="cook-anim" style="display:none" class="cook-anim"></div>
-<div id="combo-flash" style="display:none" class="combo-flash"></div>
-<!-- Day End Modal -->
-<div id="day-end-modal" class="modal-overlay" style="display:none">
-  <div class="modal-card">
-    <div class="modal-emoji" id="dem-emoji">🌙</div>
-    <div class="modal-title" id="dem-title">一天結束了！</div>
-    <div class="modal-body" id="dem-body"></div>
-    <button class="btn-primary" id="dem-btn" onclick="closeDayEnd()">繼續</button>
-  </div>
-</div>
-<!-- New Day Start -->
-<div id="new-day-modal" class="modal-overlay" style="display:none">
-  <div class="modal-card">
-    <div class="modal-emoji">🌅</div>
-    <div class="modal-title" id="ndm-title">第 <span id="ndm-day">1</span> 天</div>
-    <div class="modal-body" id="ndm-body">新的一天開始了！繼續努力！</div>
-    <button class="btn-primary" onclick="closeNewDay()">開工！🍳</button>
-  </div>
-</div>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
 
 <script src="game.js"></script>
+
 </body>
 </html>
