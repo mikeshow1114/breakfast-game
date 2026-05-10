@@ -6,199 +6,1149 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#1a0a00">
+<meta name="theme-color" content="#0d0600">
 <title>早安小老闆</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{
-    width:100%;height:100%;
-    overflow:hidden;
-    background:#000;
-    font-family:'Noto Sans TC',sans-serif;
-    position:fixed;
-    touch-action:none;
-  }
-  #game-container{
-    width:100%;height:100%;
-    display:flex;justify-content:center;align-items:center;
-  }
-  /* DOM UI overlay (login / modal) */
-  #ui-overlay{
-    position:fixed;inset:0;
-    pointer-events:none;
-    z-index:100;
-  }
-  #ui-overlay.interactive{ pointer-events:all; }
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#0d0600;position:fixed;font-family:'Noto Sans TC',system-ui,sans-serif}
+canvas#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
 
-/* Login card (DOM, shown before Phaser loads) */
-#login-screen{
-position:fixed;inset:0;
-background:linear-gradient(160deg,#0d0600 0%,#1f0c00 60%,#0d0600 100%);
-display:none;justify-content:center;align-items:center;
-z-index:200;overflow-y:auto;
-transition:opacity .4s ease;
-}
+/* ── SCREENS ── */
+.screen{position:fixed;inset:0;display:none;flex-direction:column;z-index:10;overflow:hidden;padding-top:env(safe-area-inset-top,0)}
+.screen.on{display:flex}
 
-.login-card{
-background:rgba(255,248,220,.06);
-border:1px solid rgba(245,158,11,.3);
-border-radius:20px;
-padding:28px 24px;
-width:min(360px,calc(100% - 32px));
-box-shadow:0 0 60px rgba(245,158,11,.15),0 20px 40px rgba(0,0,0,.6);
-backdrop-filter:blur(20px);
-}
-.logo-wrap{text-align:center;margin-bottom:24px}
-.logo-emoji{
-font-size:3rem;display:block;margin-bottom:8px;
-animation:logoBob 1.2s ease infinite alternate;
-filter:drop-shadow(0 0 12px rgba(245,158,11,.8));
-}
-@keyframes logoBob{from{transform:translateY(0) rotate(-4deg)}to{transform:translateY(-8px) rotate(4deg)}}
-.logo-title{
-font-size:1.8rem;font-weight:900;
-background:linear-gradient(135deg,#fbbf24,#f97316,#fbbf24);
-background-size:200% auto;
--webkit-background-clip:text;-webkit-text-fill-color:transparent;
-animation:shine 3s linear infinite;
-font-family:‘Fredoka One’,cursive;
-text-shadow:none;
-}
-@keyframes shine{to{background-position:200% center}}
+/* ── LOGIN ── */
+#s-login{background:radial-gradient(ellipse at 30% 40%,#2a1200 0%,#0d0600 70%);justify-content:center;align-items:center;overflow-y:auto}
+.login-wrap{width:calc(100% - 28px);max-width:390px;margin:auto;padding:10px 0}
+.logo-box{text-align:center;margin-bottom:22px}
+.logo-egg{font-size:3rem;display:block;margin-bottom:8px;animation:egg 1.4s ease infinite alternate;filter:drop-shadow(0 0 16px #f9731680)}
+@keyframes egg{0%{transform:rotate(-6deg) translateY(0)}100%{transform:rotate(6deg) translateY(-10px)}}
+.logo-title{font-size:1.9rem;font-weight:900;background:linear-gradient(135deg,#fbbf24,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
 .logo-sub{color:#d97706;font-size:.8rem;margin-top:4px}
-
-.tabs{display:flex;background:rgba(0,0,0,.3);border-radius:10px;padding:3px;margin-bottom:16px}
-.tab-btn{flex:1;padding:9px;border:none;background:transparent;color:#9ca3af;border-radius:8px;cursor:pointer;font-family:inherit;font-size:.88rem;font-weight:700;transition:.2s;min-height:40px}
-.tab-btn.active{background:linear-gradient(135deg,#f59e0b,#f97316);color:white}
-.tab-pane{display:none}.tab-pane.active{display:block}
-
-.field{margin-bottom:12px}
-.field label{display:block;color:#fbbf24;font-size:.76rem;margin-bottom:4px;font-weight:700}
-.field input{
-width:100%;padding:11px 13px;
-background:rgba(0,0,0,.4);border:1px solid rgba(251,191,36,.35);
-border-radius:10px;color:white;font-family:inherit;font-size:.9rem;
-outline:none;-webkit-appearance:none;min-height:44px;
-transition:.2s;
-}
-.field input:focus{border-color:#f59e0b;background:rgba(0,0,0,.6)}
-.field input::placeholder{color:#6b7280}
-
-.btn-glow{
-width:100%;padding:13px;margin-top:4px;
-background:linear-gradient(135deg,#f59e0b,#f97316);
-border:none;border-radius:12px;color:white;font-weight:900;
-font-size:.95rem;cursor:pointer;font-family:inherit;min-height:48px;
-box-shadow:0 0 20px rgba(249,115,22,.5),0 4px 12px rgba(0,0,0,.4);
-transition:.2s;letter-spacing:.5px;
-}
-.btn-glow:active{transform:scale(.97);box-shadow:0 0 10px rgba(249,115,22,.4)}
-.divider{text-align:center;margin:14px 0;position:relative;color:#6b7280;font-size:.8rem}
-.divider::before,.divider::after{content:’’;position:absolute;top:50%;width:38%;height:1px;background:rgba(255,255,255,.1)}
-.divider::before{left:0}.divider::after{right:0}
-.btn-fb{
-width:100%;padding:12px;background:#1877f2;border:none;border-radius:12px;
-color:white;font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit;
-display:flex;align-items:center;justify-content:center;gap:10px;min-height:44px;
-transition:.2s;
-}
+.card{background:rgba(255,255,255,.07);border:1px solid rgba(245,158,11,.3);border-radius:20px;padding:22px 20px;backdrop-filter:blur(16px);box-shadow:0 0 40px rgba(245,158,11,.1)}
+.tabs{display:flex;background:rgba(0,0,0,.4);border-radius:10px;padding:3px;margin-bottom:16px;gap:3px}
+.tb{flex:1;padding:9px;border:none;background:transparent;color:#9ca3af;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700;font-family:inherit;min-height:40px;transition:.2s}
+.tb.on{background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff}
+.pane{display:none}.pane.on{display:block}
+.fld{margin-bottom:11px}
+.fld label{display:block;color:#fbbf24;font-size:.76rem;margin-bottom:4px;font-weight:700}
+.fld input{width:100%;padding:12px 13px;background:rgba(0,0,0,.5);border:1px solid rgba(245,158,11,.3);border-radius:11px;color:#fff;font-size:.92rem;outline:none;min-height:44px;-webkit-appearance:none;font-family:inherit}
+.fld input:focus{border-color:#f59e0b}
+.fld input::placeholder{color:#6b7280}
+.btn-g{width:100%;padding:13px;background:linear-gradient(135deg,#f59e0b,#f97316);border:none;border-radius:13px;color:#fff;font-weight:900;font-size:.96rem;cursor:pointer;font-family:inherit;min-height:48px;box-shadow:0 0 20px rgba(249,115,22,.4);margin-top:4px;transition:.15s;display:block}
+.btn-g:active{transform:scale(.97)}
+.btn-g:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.or{text-align:center;margin:12px 0;color:#6b7280;font-size:.78rem;position:relative}
+.or::before,.or::after{content:’’;position:absolute;top:50%;width:38%;height:1px;background:rgba(255,255,255,.1)}
+.or::before{left:0}.or::after{right:0}
+.btn-fb{width:100%;padding:12px;background:#1877f2;border:none;border-radius:13px;color:#fff;font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit;min-height:44px;display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
 .btn-fb:active{background:#1464d8;transform:scale(.97)}
-.demo-note{text-align:center;margin-top:12px;color:#6b7280;font-size:.72rem;padding:8px;border:1px dashed rgba(245,158,11,.2);border-radius:8px}
+.demo{text-align:center;margin-top:12px;color:#6b7280;font-size:.72rem;padding:7px;border:1px dashed rgba(245,158,11,.2);border-radius:8px}
 
-/* Loading bar */
-#loading-screen{
-position:fixed;inset:0;background:#000;
-display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;
-z-index:300;transition:opacity .4s ease;
-}
-.load-icon{font-size:3rem;animation:logoBob 1s ease infinite alternate;filter:drop-shadow(0 0 20px #f97316)}
-.load-title{color:#fbbf24;font-size:1.2rem;font-weight:900;font-family:‘Fredoka One’,cursive}
-.load-bar-wrap{width:200px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;border:1px solid rgba(245,158,11,.3)}
-.load-bar{height:100%;background:linear-gradient(90deg,#f59e0b,#f97316);border-radius:3px;transition:width .3s ease;width:0%}
-.load-text{color:#6b7280;font-size:.78rem}
+/* ── CHAR SELECT ── */
+#s-char{background:linear-gradient(180deg,#0d0600,#1a0a00);align-items:center;overflow-y:auto;padding:0 14px calc(20px + env(safe-area-inset-bottom,0))}
+.page-title{font-size:1.5rem;font-weight:900;color:#fbbf24;text-align:center;margin:18px 0 4px}
+.page-sub{color:#9ca3af;font-size:.82rem;text-align:center;margin-bottom:16px}
+.char-row{display:flex;gap:12px;width:100%;max-width:480px}
+.char-card{flex:1;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.12);border-radius:18px;padding:16px 10px;text-align:center;cursor:pointer;transition:.2s;touch-action:manipulation}
+.char-card.on,.char-card:active{border-color:#f59e0b;background:rgba(245,158,11,.12);transform:translateY(-3px)}
+.char-em{font-size:3.2rem;display:block;margin-bottom:6px;filter:drop-shadow(0 0 8px rgba(0,0,0,.4))}
+.char-card h3{color:#fff;font-size:1rem;font-weight:900;margin-bottom:3px}
+.char-card p{color:#9ca3af;font-size:.72rem;margin-bottom:10px}
+.brow{display:flex;align-items:center;gap:5px;margin-bottom:4px;text-align:left}
+.brow span{color:#9ca3af;font-size:.64rem;width:22px;flex-shrink:0}
+.bbar{flex:1;height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+.bbar i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,#f97316);border-radius:3px}
+.name-row{display:flex;gap:8px;margin-top:16px;width:100%;max-width:340px}
+.name-row input{flex:1;padding:11px 13px;background:rgba(0,0,0,.5);border:1px solid rgba(245,158,11,.3);border-radius:11px;color:#fff;font-size:.95rem;outline:none;min-height:44px;-webkit-appearance:none;text-align:center;font-family:inherit}
+
+/* ── GAME ── */
+#s-game{background:#0d0600}
+/* HUD */
+.hud{display:flex;align-items:center;gap:6px;padding:0 10px;background:rgba(245,158,11,.95);border-bottom:2px solid #1a0a00;flex-shrink:0;height:52px;box-shadow:0 2px 0 #1a0a00}
+.hud-av{font-size:1.7rem;filter:drop-shadow(1px 2px 0 rgba(0,0,0,.5));flex-shrink:0;cursor:pointer}
+.hud-info{display:flex;flex-direction:column;min-width:0;cursor:pointer}
+.hud-name{color:#fff;font-weight:900;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58px;text-shadow:1px 1px 0 rgba(0,0,0,.4)}
+.hud-lv{color:#1a0a00;font-size:.62rem;font-weight:900}
+.hud-money{flex:1;display:flex;align-items:center;justify-content:center;gap:3px;background:#fff;border:2px solid #1a0a00;border-radius:18px;padding:3px 8px;font-weight:900;font-size:.9rem;color:#1a0a00;box-shadow:2px 2px 0 #1a0a00;margin:0 4px}
+.hud-btns{display:flex;gap:4px;flex-shrink:0}
+.hbtn{padding:5px 7px;background:#fff;border:2px solid #1a0a00;border-radius:8px;font-size:.75rem;cursor:pointer;min-height:32px;min-width:32px;display:flex;align-items:center;justify-content:center;box-shadow:2px 2px 0 #1a0a00;font-weight:900;touch-action:manipulation}
+.hbtn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #1a0a00}
+/* Day bar */
+.daybar{background:#1a0800;border-bottom:2px solid #1a0a00;padding:5px 12px;flex-shrink:0;height:44px;display:flex;flex-direction:column;justify-content:center}
+.dbar-row{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+.dbar-track{flex:1;height:7px;background:rgba(255,255,255,.1);border:1.5px solid #1a0a00;border-radius:4px;overflow:hidden}
+.dbar-fill{height:100%;background:linear-gradient(90deg,#f59e0b,#10b981);border-radius:2px;transition:width 1s linear;width:0%}
+.dbar-time{color:#fff;font-size:.7rem;font-weight:900;min-width:38px;text-align:right;flex-shrink:0}
+.dbar-info{display:flex;justify-content:space-between;font-size:.64rem;color:#a08060}
+.dbar-info strong{color:#fbbf24}
+/* Shop scene */
+.shop-scene{flex:1;position:relative;overflow:hidden;min-height:0}
+/* Orders */
+.orders-row{position:absolute;top:28px;left:0;right:0;display:flex;gap:7px;padding:0 9px;overflow-x:auto;z-index:20;min-height:86px;align-items:flex-start;pointer-events:none;scrollbar-width:none}
+.orders-row::-webkit-scrollbar{display:none}
+.ocard{pointer-events:all;background:#fff;border:2.5px solid #1a0a00;border-radius:12px;padding:5px 6px;min-width:66px;max-width:74px;text-align:center;flex-shrink:0;box-shadow:3px 3px 0 #1a0a00;opacity:0;transform:translateY(-12px) scale(.85);transition:all .3s}
+.ocard.show{opacity:1;transform:translateY(0) scale(1)}
+.ocard.done{opacity:0;transform:translateY(-20px) scale(.7);border-color:#10b981}
+.ocard.fail{opacity:0;transform:translateY(8px) scale(.8);border-color:#ef4444}
+.ocard.hot{animation:hotpulse .35s infinite alternate;border-color:#ef4444}
+@keyframes hotpulse{from{box-shadow:3px 3px 0 #ef4444}to{box-shadow:3px 3px 0 #ef4444,0 0 10px rgba(239,68,68,.5)}}
+.oc-em{font-size:1.3rem;line-height:1}
+.oc-name{color:#1a0a00;font-size:.55rem;font-weight:900;margin:2px 0 1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.oc-price{color:#f97316;font-size:.6rem;font-weight:900}
+.ot{height:3.5px;background:#e0d0b0;border:1px solid #1a0a00;border-radius:2px;overflow:hidden;margin-top:3px}
+.otb{height:100%;width:100%;background:#22c55e;transition:width 1s linear,background .3s;border-radius:1px}
+/* Bottom panel */
+.panel{background:#1a0800;border-top:2.5px solid #1a0a00;flex-shrink:0;height:calc(230px + env(safe-area-inset-bottom,0));display:flex;flex-direction:column}
+.ptabs{display:flex;border-bottom:2px solid #1a0a00;flex-shrink:0;height:40px}
+.pt{flex:1;border:none;background:transparent;color:#a08060;cursor:pointer;font-size:clamp(.65rem,3.2vw,.76rem);font-weight:900;font-family:inherit;border-bottom:3px solid transparent;border-right:1px solid rgba(255,255,255,.06);touch-action:manipulation}
+.pt:last-child{border-right:none}
+.pt.on{color:#fbbf24;border-bottom-color:#f59e0b;background:rgba(245,158,11,.07)}
+.pcontent{display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 10px;height:calc(230px - 40px);overscroll-behavior:contain}
+.pcontent.on{display:block}
+/* Menu grid */
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:6px}
+.mbtn{background:#fff8e7;border:2.5px solid #1a0a00;border-radius:10px;padding:6px 3px;text-align:center;cursor:pointer;min-height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:2px 2px 0 #1a0a00;touch-action:manipulation;position:relative}
+.mbtn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #1a0a00}
+.mbtn.cooking{opacity:.55;pointer-events:none}
+.mbtn.want{border-color:#f59e0b!important;background:#fffbe0!important;animation:want .6s infinite alternate}
+@keyframes want{from{box-shadow:2px 2px 0 #f59e0b}to{box-shadow:2px 2px 0 #f97316,0 0 8px rgba(245,158,11,.5)}}
+.me{font-size:1.35rem;display:block;margin-bottom:2px}
+.mn{color:#1a0a00;font-size:.57rem;font-weight:900}
+.mp{color:#f97316;font-size:.62rem;font-weight:900}
+.mt{color:#a08060;font-size:.53rem}
+/* Staff/Buy/Stats */
+.srow{display:flex;align-items:center;gap:9px;background:#fff8e7;border:2.5px solid #1a0a00;border-radius:10px;padding:8px;box-shadow:2px 2px 0 #1a0a00;margin-bottom:7px}
+.srow-info{flex:1;min-width:0}
+.srow-name{color:#1a0a00;font-size:.8rem;font-weight:900;margin-bottom:1px}
+.srow-desc{color:#7c3d00;font-size:.66rem;font-weight:700}
+.srow-cost{color:#f97316;font-size:.68rem;font-weight:900;margin-top:1px}
+.abtn{padding:7px 10px;border:2.5px solid #1a0a00;border-radius:8px;color:#fff;font-weight:900;font-size:.68rem;cursor:pointer;font-family:inherit;min-height:34px;box-shadow:2px 2px 0 #1a0a00;touch-action:manipulation;flex-shrink:0}
+.abtn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #1a0a00}
+.abtn.g{background:#22c55e}.abtn.a{background:#f59e0b}.abtn.r{background:#ef4444}
+.abtn:disabled{background:#6b7280;cursor:not-allowed;transform:none;opacity:.6}
+.sgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px}
+.scrd{background:#fff8e7;border:2.5px solid #1a0a00;border-radius:9px;padding:6px;text-align:center;box-shadow:2px 2px 0 #1a0a00}
+.sv{color:#1a0a00;font-size:.95rem;font-weight:900}
+.sl{color:#7c3d00;font-size:.58rem;font-weight:700}
+.gcrd{background:#fff8e7;border:2.5px solid #1a0a00;border-radius:10px;padding:10px;box-shadow:2px 2px 0 #1a0a00}
+.gbar{height:13px;background:#e0d0b0;border:2px solid #1a0a00;border-radius:7px;overflow:hidden;position:relative;margin:6px 0 8px}
+.gbarf{height:100%;background:linear-gradient(90deg,#f59e0b,#22c55e);border-radius:5px;transition:width .8s;width:0%}
+.gpct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#1a0a00;font-size:.6rem;font-weight:900}
+
+/* ── MAP SCREEN ── */
+#s-map{background:#fff8e7;flex-direction:column}
+.map-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f59e0b;border-bottom:2.5px solid #1a0a00;flex-shrink:0;box-shadow:0 2px 0 #1a0a00}
+.map-hdr h2{flex:1;color:#fff;font-size:1rem;font-weight:900;text-shadow:1px 1px 0 rgba(0,0,0,.3)}
+.back-btn{padding:7px 13px;background:#fff;border:2.5px solid #1a0a00;border-radius:9px;color:#1a0a00;cursor:pointer;font-family:inherit;font-size:.82rem;min-height:36px;font-weight:900;box-shadow:2px 2px 0 #1a0a00;touch-action:manipulation;flex-shrink:0}
+.back-btn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #1a0a00}
+.map-wrap{flex:1;display:flex;justify-content:center;align-items:center;padding:6px;overflow:hidden;background:radial-gradient(ellipse,#e0f0e8,#c8e0d0);position:relative}
+svg#tw{max-height:100%;width:auto;max-width:100%;filter:drop-shadow(0 4px 12px rgba(0,0,0,.2))}
+.city-dot{cursor:pointer;transition:r .15s}
+.city-lbl{font-size:10px;font-weight:900;pointer-events:none;font-family:system-ui,sans-serif}
+.map-popup{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom,0));left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:340px;background:#fff;border:3px solid #1a0a00;border-radius:18px;padding:14px;z-index:200;box-shadow:6px 6px 0 #1a0a00;display:none}
+.mp-top{display:flex;align-items:center;gap:10px;margin-bottom:5px}
+.mp-city{color:#1a0a00;font-size:1.1rem;font-weight:900}
+.mp-badge{background:#f59e0b;color:#fff;border:2px solid #1a0a00;border-radius:10px;padding:2px 9px;font-size:.7rem;font-weight:900;box-shadow:2px 2px 0 #1a0a00}
+.mp-desc{color:#7c3d00;font-size:.8rem;margin-bottom:9px;font-weight:700}
+.mp-stats{display:flex;border:2.5px solid #1a0a00;border-radius:9px;overflow:hidden;margin-bottom:10px}
+.mps{flex:1;padding:7px 4px;text-align:center;border-right:2px solid #1a0a00;background:#fff8e7}
+.mps:last-child{border:none}
+.mps span{display:block;color:#7c3d00;font-size:.62rem;margin-bottom:2px;font-weight:700}
+.mps strong{color:#1a0a00;font-size:.82rem;font-weight:900}
+.mp-cond{margin-bottom:9px;padding:7px;background:#fff0f0;border:2px solid #ef4444;border-radius:8px;color:#ef4444;font-size:.76rem;font-weight:700;display:none}
+.mp-cond.on{display:block}
+
+/* ── FRIENDS ── */
+#s-friends{background:#fff8e7;overflow-y:auto}
+.friends-body{padding:12px 14px calc(20px + env(safe-area-inset-bottom,0));display:flex;flex-direction:column;gap:12px}
+.id-card{background:#fff;border:2.5px solid #1a0a00;border-radius:13px;padding:13px;text-align:center;box-shadow:3px 3px 0 #1a0a00}
+.id-lbl{color:#7c3d00;font-size:.7rem;margin-bottom:6px;font-weight:700}
+.my-id{color:#f97316;font-size:1.2rem;font-weight:900;font-family:monospace;letter-spacing:3px;word-break:break-all;margin-bottom:8px}
+.btn-copy{padding:8px 20px;background:#f59e0b;border:2.5px solid #1a0a00;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:.8rem;min-height:38px;font-weight:900;box-shadow:2px 2px 0 #1a0a00;touch-action:manipulation}
+.btn-copy:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #1a0a00}
+.sec-title{color:#1a0a00;font-weight:900;font-size:.88rem}
+.add-row{display:flex;gap:7px}
+.add-row input{flex:1;padding:10px 12px;background:#fff;border:2.5px solid #1a0a00;border-radius:10px;color:#1a0a00;font-family:inherit;font-size:.88rem;outline:none;min-height:44px;-webkit-appearance:none}
+.add-row input:focus{border-color:#f59e0b}
+.fi{display:flex;align-items:center;gap:10px;background:#fff;border:2.5px solid #1a0a00;border-radius:11px;padding:10px;cursor:pointer;min-height:54px;touch-action:manipulation;box-shadow:2px 2px 0 #1a0a00}
+.fi:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #1a0a00}
+.fi-av{font-size:1.7rem;flex-shrink:0}
+.fi-info{flex:1;min-width:0}
+.fi-name{color:#1a0a00;font-weight:900;font-size:.82rem}
+.fi-detail{color:#7c3d00;font-size:.68rem;margin-top:2px;font-weight:700}
+.fi-act{color:#f97316;font-size:.78rem;font-weight:900;flex-shrink:0}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-card{background:#fff;border:3px solid #1a0a00;border-radius:20px;padding:22px;text-align:center;width:100%;max-width:310px;box-shadow:8px 8px 0 #1a0a00;animation:slideUp .3s}
+@keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-em{font-size:3rem;display:block;margin-bottom:8px;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.25))}
+.modal-title{color:#1a0a00;font-size:1.25rem;font-weight:900;margin-bottom:8px}
+.modal-body{color:#7c3d00;font-size:.82rem;line-height:1.7;margin-bottom:14px;font-weight:700}
+.modal-body strong{color:#f97316;font-weight:900}
+
+/* ── TOAST ── */
+#toast{position:fixed;top:calc(56px + env(safe-area-inset-top,0) + 4px);left:50%;transform:translateX(-50%);background:#fff;color:#1a0a00;padding:8px 15px;border-radius:14px;font-size:.8rem;pointer-events:none;opacity:0;transition:opacity .25s;z-index:9999;border:2.5px solid #1a0a00;white-space:nowrap;max-width:calc(100% - 20px);font-weight:900;box-shadow:3px 3px 0 #1a0a00;overflow:hidden;text-overflow:ellipsis}
+#toast.on{opacity:1}
+/* Combo */
+#combo{position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);color:#fbbf24;font-size:1.8rem;font-weight:900;pointer-events:none;opacity:0;text-shadow:3px 3px 0 #1a0a00;z-index:9998;transition:opacity .1s}
 </style>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Fredoka+One&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<!-- Loading Screen -->
+<!-- FX Canvas (particles, lighting) -->
 
-<div id="loading-screen">
-  <div class="load-icon">🍳</div>
-  <div class="load-title">早安小老闆</div>
-  <div class="load-bar-wrap"><div class="load-bar" id="load-bar"></div></div>
-  <div class="load-text" id="load-text">載入遊戲引擎...</div>
-</div>
+<canvas id="fx"></canvas>
 
-<!-- Login Screen (DOM) -->
+<!-- LOGIN -->
 
-<div id="login-screen" class="hidden">
-  <div class="login-card">
-    <div class="logo-wrap">
-      <span class="logo-emoji">🍳</span>
+<div id="s-login" class="screen on">
+  <div class="login-wrap">
+    <div class="logo-box">
+      <span class="logo-egg">🍳</span>
       <div class="logo-title">早安小老闆</div>
       <div class="logo-sub">從一間早餐店，征服全台灣</div>
     </div>
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchLoginTab('login')">登入</button>
-      <button class="tab-btn" onclick="switchLoginTab('register')">註冊</button>
+    <div class="card">
+      <div class="tabs">
+        <button class="tb on" onclick="ltab('login')">登入</button>
+        <button class="tb" onclick="ltab('reg')">註冊</button>
+      </div>
+      <div id="p-login" class="pane on">
+        <div class="fld"><label>📧 信箱</label><input type="email" id="li-email" placeholder="your@email.com"></div>
+        <div class="fld"><label>🔒 密碼</label><input type="password" id="li-pass" placeholder="••••••••"></div>
+        <button class="btn-g" onclick="doLogin()">🚀 開始賺錢！</button>
+        <div class="or">或</div>
+        <button class="btn-fb" onclick="doFB()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
+          Facebook 登入
+        </button>
+      </div>
+      <div id="p-reg" class="pane">
+        <div class="fld"><label>👤 暱稱</label><input type="text" id="rg-name" placeholder="小老闆名字"></div>
+        <div class="fld"><label>📧 信箱</label><input type="email" id="rg-email" placeholder="your@email.com"></div>
+        <div class="fld"><label>🔒 密碼</label><input type="password" id="rg-pass" placeholder="至少6字元"></div>
+        <button class="btn-g" onclick="doReg()">✨ 創建帳號</button>
+      </div>
+      <div class="demo">💡 直接點「開始賺錢」快速體驗</div>
     </div>
-    <div id="pane-login" class="tab-pane active">
-      <div class="field"><label>📧 信箱</label><input type="email" id="li-email" placeholder="your@email.com"></div>
-      <div class="field"><label>🔒 密碼</label><input type="password" id="li-pass" placeholder="••••••••"></div>
-      <button class="btn-glow" onclick="doLogin()">🚀 開始賺錢！</button>
-      <div class="divider">或</div>
-      <button class="btn-fb" onclick="doFBLogin()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
-        Facebook 登入
-      </button>
-    </div>
-    <div id="pane-register" class="tab-pane">
-      <div class="field"><label>👤 暱稱</label><input type="text" id="rg-name" placeholder="小老闆的名字"></div>
-      <div class="field"><label>📧 信箱</label><input type="email" id="rg-email" placeholder="your@email.com"></div>
-      <div class="field"><label>🔒 密碼</label><input type="password" id="rg-pass" placeholder="至少6字元"></div>
-      <button class="btn-glow" onclick="doRegister()">✨ 創建帳號</button>
-    </div>
-    <div class="demo-note">💡 直接點「開始賺錢」可快速體驗</div>
   </div>
 </div>
 
-<!-- Phaser Canvas Container -->
+<!-- CHAR SELECT -->
 
-<div id="game-container"></div>
-<!-- DOM UI Overlay for Phaser -->
-<div id="ui-overlay"></div>
+<div id="s-char" class="screen">
+  <div class="page-title">選擇角色</div>
+  <div class="page-sub">選一個代表你的小老闆！</div>
+  <div class="char-row">
+    <div class="char-card" id="cc-boy" onclick="selChar('boy')">
+      <span class="char-em">👦</span>
+      <h3>小明</h3><p>烹飪速度 +10%</p>
+      <div class="brow"><span>廚藝</span><div class="bbar"><i style="width:70%"></i></div></div>
+      <div class="brow"><span>體力</span><div class="bbar"><i style="width:85%"></i></div></div>
+      <div class="brow"><span>魅力</span><div class="bbar"><i style="width:55%"></i></div></div>
+    </div>
+    <div class="char-card" id="cc-girl" onclick="selChar('girl')">
+      <span class="char-em">👧</span>
+      <h3>小美</h3><p>顧客滿意 +10%</p>
+      <div class="brow"><span>廚藝</span><div class="bbar"><i style="width:60%"></i></div></div>
+      <div class="brow"><span>體力</span><div class="bbar"><i style="width:70%"></i></div></div>
+      <div class="brow"><span>魅力</span><div class="bbar"><i style="width:90%"></i></div></div>
+    </div>
+  </div>
+  <div class="name-row" id="name-row" style="display:none">
+    <input type="text" id="char-name" placeholder="輸入名字…" maxlength="8">
+    <button class="btn-g" style="width:auto;padding:11px 18px" onclick="confirmChar()">出發！</button>
+  </div>
+</div>
 
-<!-- Phaser 3: load synchronously first, then game.js -->
+<!-- GAME -->
+
+<div id="s-game" class="screen">
+  <div class="hud">
+    <span class="hud-av" id="hud-av" onclick="goScreen('s-profile')">👦</span>
+    <div class="hud-info" onclick="goScreen('s-profile')">
+      <div class="hud-name" id="hud-name">小老闆</div>
+      <div class="hud-lv">Lv.<span id="hud-lv">1</span> <span id="hud-title">初學廚師</span></div>
+    </div>
+    <div class="hud-money">💰 <span id="hud-money">500</span> 元</div>
+    <div class="hud-btns">
+      <button class="hbtn" id="btn-music" onclick="toggleMusic()">🎵</button>
+      <button class="hbtn" onclick="goScreen('s-map')">🗺️</button>
+      <button class="hbtn" onclick="goScreen('s-friends')">👫</button>
+    </div>
+  </div>
+  <div class="daybar">
+    <div class="dbar-row">
+      <span style="color:#fbbf24;font-size:.68rem;font-weight:900">⏰</span>
+      <div class="dbar-track"><div class="dbar-fill" id="dbar"></div></div>
+      <span class="dbar-time" id="dtime">30:00</span>
+    </div>
+    <div class="dbar-info">
+      <span>目標：<strong id="dgoal">$0</strong></span>
+      <span>今日：<strong id="dearned" style="color:#34d399">$0</strong></span>
+    </div>
+  </div>
+  <div class="shop-scene" id="shop-scene">
+    <canvas id="shop-canvas" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <div class="orders-row" id="orders-row"></div>
+    <div id="chars-layer" style="position:absolute;bottom:0;left:0;right:0;pointer-events:none;height:60px;display:flex;align-items:flex-end;padding:0 8px;gap:4px;z-index:10"></div>
+  </div>
+  <div class="panel">
+    <div class="ptabs">
+      <button class="pt on" onclick="ptab('cook')">🍳 製作</button>
+      <button class="pt" onclick="ptab('staff')">👨‍🍳 員工</button>
+      <button class="pt" onclick="ptab('buy')">🛒 購買</button>
+      <button class="pt" onclick="ptab('stats')">📊 統計</button>
+    </div>
+    <div id="pc-cook"  class="pcontent on"></div>
+    <div id="pc-staff" class="pcontent"></div>
+    <div id="pc-buy"   class="pcontent"></div>
+    <div id="pc-stats" class="pcontent"></div>
+  </div>
+</div>
+
+<!-- MAP -->
+
+<div id="s-map" class="screen">
+  <div class="map-hdr">
+    <button class="back-btn" onclick="goScreen('s-game')">← 返回</button>
+    <h2>🗺️ 台灣展店地圖</h2>
+    <span style="color:#fff;font-size:.82rem;font-weight:900">💰<span id="map-money">0</span>元</span>
+  </div>
+  <div class="map-wrap">
+    <svg id="tw" viewBox="0 0 400 580" xmlns="http://www.w3.org/2000/svg">
+      <defs><filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <path d="M200,28 C222,26 248,34 264,56 C282,82 288,114 282,144 C292,166 298,190 292,216 C302,246 304,276 296,306 C302,336 300,366 286,392 C276,412 260,428 244,438 C228,452 212,462 198,462 C184,458 168,448 154,436 C140,424 126,408 116,390 C104,364 102,334 108,304 C100,272 102,244 114,214 C106,188 110,162 122,142 C114,112 120,80 142,56 C158,34 178,26 200,28Z" fill="#5cb87a" stroke="#2d7a40" stroke-width="2.5"/>
+      <g id="city-dots"></g>
+    </svg>
+  </div>
+  <div class="map-popup" id="map-popup">
+    <div class="mp-top"><span class="mp-city" id="mp-city">台北</span><span class="mp-badge" id="mp-badge">🔥 熱門</span></div>
+    <p class="mp-desc" id="mp-desc"></p>
+    <div class="mp-stats">
+      <div class="mps"><span>開店費用</span><strong id="mp-cost">$0</strong></div>
+      <div class="mps"><span>每30秒收入</span><strong id="mp-pass">$0</strong></div>
+    </div>
+    <div class="mp-cond" id="mp-cond"></div>
+    <button class="btn-g" id="mp-btn" onclick="openBranch()">開立分店</button>
+    <button onclick="closePopup()" style="width:100%;padding:10px;background:transparent;border:2px solid #ccc;border-radius:10px;color:#9ca3af;cursor:pointer;font-family:inherit;margin-top:7px;font-size:.84rem;font-weight:700">關閉</button>
+  </div>
+</div>
+
+<!-- FRIENDS -->
+
+<div id="s-friends" class="screen">
+  <div class="map-hdr">
+    <button class="back-btn" onclick="goScreen('s-game')">← 返回</button>
+    <h2>👫 好友系統</h2>
+  </div>
+  <div class="friends-body">
+    <div class="id-card">
+      <div class="id-lbl">我的帳號 ID（分享給好友）</div>
+      <div class="my-id" id="my-id">---</div>
+      <button class="btn-copy" onclick="copyId()">📋 複製 ID</button>
+    </div>
+    <div class="sec-title">➕ 加入好友</div>
+    <div class="add-row">
+      <input type="text" id="fi-input" placeholder="輸入好友 ID">
+      <button class="abtn a" onclick="addFriend()" style="min-width:54px">加入</button>
+    </div>
+    <div class="sec-title">👥 好友列表</div>
+    <div id="friends-list"></div>
+  </div>
+</div>
+
+<!-- PROFILE -->
+
+<div id="s-profile" class="screen" style="background:#fff8e7;overflow-y:auto">
+  <div class="map-hdr">
+    <button class="back-btn" onclick="goScreen('s-game')">← 返回</button>
+    <h2>👤 個人資料</h2>
+  </div>
+  <div style="padding:14px 14px calc(22px + env(safe-area-inset-bottom,0));display:flex;flex-direction:column;gap:12px">
+    <div style="text-align:center;padding:14px 0 6px">
+      <div id="prof-av" style="font-size:4rem;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.25))">👦</div>
+      <div id="prof-name" style="color:#1a0a00;font-size:1.3rem;font-weight:900;margin-top:6px">小明</div>
+      <div id="prof-title" style="color:#f97316;font-size:.88rem;font-weight:700">初學廚師</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px" id="prof-stats"></div>
+    <div style="color:#1a0a00;font-weight:900;font-size:.9rem">🏆 成就</div>
+    <div id="ach-list" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
+    <button class="btn-g" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 12px rgba(239,68,68,.3)" onclick="doLogout()">🚪 登出</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="combo"></div>
 
 <script>
-// Dynamically load Phaser first, then game.js
-(function() {
-  var phaserScript = document.createElement('script');
-  phaserScript.src = 'https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js';
-  phaserScript.onload = function() {
-    var gameScript = document.createElement('script');
-    gameScript.src = 'game.js?v=' + Date.now();
-    document.head.appendChild(gameScript);
-  };
-  phaserScript.onerror = function() {
-    // Fallback CDN
-    var phaserScript2 = document.createElement('script');
-    phaserScript2.src = 'https://cdnjs.cloudflare.com/ajax/libs/phaser/3.70.0/phaser.min.js';
-    phaserScript2.onload = function() {
-      var gameScript = document.createElement('script');
-      gameScript.src = 'game.js?v=' + Date.now();
-      document.head.appendChild(gameScript);
-    };
-    phaserScript2.onerror = function() {
-      document.getElementById('load-text').textContent = '❌ 載入失敗，請重新整理頁面';
-    };
-    document.head.appendChild(phaserScript2);
-  };
-  document.head.appendChild(phaserScript);
+'use strict';
+/* ═══════════════════════════
+   DATA
+═══════════════════════════ */
+const MENU=[
+  {id:'egg',    e:'🍳',n:'煎蛋',  p:25, t:3, xp:5},
+  {id:'toast',  e:'🍞',n:'吐司',  p:30, t:4, xp:6},
+  {id:'bacon',  e:'🥓',n:'培根',  p:35, t:5, xp:8},
+  {id:'coffee', e:'☕',n:'咖啡',  p:40, t:3, xp:7},
+  {id:'sandwich',e:'🥪',n:'三明治',p:55,t:8, xp:12},
+  {id:'pancake',e:'🥞',n:'鬆餅',  p:65, t:10,xp:15},
+  {id:'rice',   e:'🍱',n:'飯糰',  p:30, t:4, xp:7},
+  {id:'soy',    e:'🥛',n:'豆漿',  p:20, t:2, xp:4},
+  {id:'noodle', e:'🍜',n:'湯麵',  p:60, t:9, xp:14},
+  {id:'dumpling',e:'🥟',n:'水餃', p:45, t:7, xp:10},
+];
+const CITIES={
+  taipei:   {n:'台北',d:'首都商圈，人潮最多！',   badge:'🔥 熱門',avgP:45,pass:1200,cx:205,cy:88},
+  newtaipei:{n:'新北',d:'雙北通勤族，穩定客源', badge:'👥 穩定',avgP:38,pass:1000,cx:192,cy:116},
+  taoyuan:  {n:'桃園',d:'航空城，多元族群',     badge:'✈️ 新興',avgP:40,pass:900, cx:172,cy:138},
+  hsinchu:  {n:'新竹',d:'科技人，消費力強',     badge:'💻 科技',avgP:50,pass:950, cx:160,cy:167},
+  taichung: {n:'台中',d:'宜居城市，慢活族多',   badge:'🌸 宜居',avgP:42,pass:1100,cx:168,cy:256},
+  tainan:   {n:'台南',d:'古都美食激戰區',       badge:'🏛️ 古都',avgP:35,pass:1000,cx:171,cy:362},
+  kaohsiung:{n:'高雄',d:'南部最大商圈',         badge:'🏙️ 南部',avgP:40,pass:1050,cx:184,cy:406},
+  hualien:  {n:'花蓮',d:'觀光勝地，旺季超強',   badge:'🏔️ 觀光',avgP:45,pass:800, cx:256,cy:242},
+};
+const EXPAND=[
+  {id:'newtaipei',cost:8000, need:2000,days:3},
+  {id:'taoyuan',  cost:10000,need:2500,days:3},
+  {id:'hsinchu',  cost:12000,need:3000,days:4},
+  {id:'taichung', cost:18000,need:4000,days:5},
+  {id:'tainan',   cost:22000,need:5000,days:5},
+  {id:'kaohsiung',cost:25000,need:6000,days:6},
+  {id:'hualien',  cost:15000,need:3500,days:4},
+];
+const STAFF_CAT=[
+  {id:'h1',n:'工讀生小花',  e:'👩',spd:.05,sat:.05,auto:false,      salary:200, d:'速度+5% 滿意+5%',   b:'🟢入門'},
+  {id:'h2',n:'廚師助理阿豪',e:'👨',spd:.12,sat:.08,auto:false,      salary:450, d:'速度+12% 滿意+8%',  b:'🔵中級'},
+  {id:'s1',n:'外場服務生',  e:'🧑',spd:0,  sat:.2, auto:true,int:15, salary:350, d:'自動服務 滿意+20%', b:'🟡服務'},
+  {id:'c1',n:'正職廚師老陳',e:'👴',spd:.25,sat:.1, auto:false,      salary:900, d:'速度+25% 滿意+10%', b:'🔴資深'},
+  {id:'mg',n:'店長王姐',    e:'👩‍💼',spd:.1,sat:.25,auto:true,int:8,  salary:1500,d:'全能加成 自動送餐', b:'🟣店長'},
+];
+const TITLES=[
+  {lv:1,t:'初學廚師',min:0},{lv:2,t:'小廚師',min:500},{lv:3,t:'實習老闆',min:1500},
+  {lv:4,t:'小老闆',min:3000},{lv:5,t:'連鎖新手',min:6000},{lv:6,t:'展店達人',min:12000},
+  {lv:7,t:'地區霸主',min:25000},{lv:8,t:'全台知名',min:50000},
+  {lv:9,t:'早餐大王',min:100000},{lv:10,t:'早餐帝國',min:200000},
+];
+const ACHS=[
+  {id:'c1',n:'初次下廚',d:'製作第一道料理',e:'🍳',f:s=>s.cooked>=1},
+  {id:'m1k',n:'小有積蓄',d:'累積$1,000',  e:'💰',f:s=>s.totalInc>=1000},
+  {id:'m10k',n:'萬元富翁',d:'累積$10,000',e:'💵',f:s=>s.totalInc>=10000},
+  {id:'b2',n:'二店開張', d:'開立第2間分店',e:'🏪',f:s=>s.branches.length>=2},
+  {id:'b5',n:'連鎖品牌', d:'開立第5間分店',e:'🔗',f:s=>s.branches.length>=5},
+  {id:'fr1',n:'廣結善緣',d:'加入第一個好友',e:'👫',f:s=>(s.friends||[]).length>=1},
+  {id:'c100',n:'百道料理',d:'製作100道料理',e:'🏆',f:s=>s.cooked>=100},
+  {id:'d10',n:'十日堅持', d:'撐過10天',    e:'📅',f:s=>s.dayCount>=10},
+];
+const CEm=['👨','👩','👴','👵','👦','👧','🧑','👱'];
+const DAY_SEC=30*60, MAX_ORD=4, ORD_SEC=22;
+
+/* ═══════════════════════════
+   STATE
+═══════════════════════════ */
+let S={};
+function freshState(){return{user:null,char:null,charName:'',money:500,totalInc:0,cooked:0,lv:1,xp:0,rating:4,branches:[],branchIdx:0,hired:[],achs:[],purchItems:[],bprog:{},combo:0,bestCombo:0,dayCount:1,dayRev:0,dayGoal:1500,friends:[]};}
+function save(){if(!S.user)return;try{localStorage.setItem('bk3_'+S.user.id,JSON.stringify(S));}catch(e){}}
+function load(uid){try{const r=localStorage.getItem('bk3_'+uid);if(!r)return null;const s=JSON.parse(r);['branches','hired','achs','purchItems','friends'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[];});if(!s.bprog)s.bprog={};return s;}catch(e){return null;}}
+function getTitle(inc){let t=TITLES[0];for(const x of TITLES)if(inc>=x.min)t=x;return t;}
+function genId(){return Math.random().toString(36).substr(2,8).toUpperCase();}
+
+/* ═══════════════════════════
+   AUDIO
+═══════════════════════════ */
+let actx=null,musicOn=true,bgmT=null,bgmB=0;
+function ac(){if(!actx)try{actx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}return actx;}
+function rnm(){const c=ac();if(c&&c.state==='suspended')c.resume();}
+function tone(f,tp,d,v,dl=0){const c=ac();if(!c)return;try{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type=tp;o.frequency.setValueAtTime(f,c.currentTime+dl);g.gain.setValueAtTime(v,c.currentTime+dl);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+dl+d);o.start(c.currentTime+dl);o.stop(c.currentTime+dl+d+.05);}catch(e){}}
+function nz(d,v,hi=2000){const c=ac();if(!c)return;try{const b=c.createBuffer(1,c.sampleRate*d,c.sampleRate),dt=b.getChannelData(0);for(let i=0;i<dt.length;i++)dt[i]=(Math.random()*2-1)*(1-i/dt.length);const s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s.buffer=b;f.type='highpass';f.frequency.value=hi;s.connect(f);f.connect(g);g.connect(c.destination);g.gain.setValueAtTime(v,c.currentTime);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+d);s.start();}catch(e){}}
+const SFX={
+  tap(){tone(700,'sine',.05,.07);},
+  sizzle(){nz(.3,.18,2200);},
+  done(){tone(880,'sine',.08,.2);tone(1320,'sine',.18,.16,.07);tone(1760,'sine',.25,.14,.15);},
+  coin(){tone(1200,'square',.05,.1);tone(1600,'square',.04,.08,.03);tone(2000,'sine',.07,.06,.06);},
+  ok(){[523,659,784,1047].forEach((f,i)=>tone(f,'sine',.15,.16,i*.08));},
+  bad(){tone(220,'sawtooth',.2,.2);tone(196,'sawtooth',.2,.2,.1);},
+  lv(){[523,587,659,698,784,880,988,1047].forEach((f,i)=>tone(f,'sine',.18,.19,i*.07));},
+  bell(){tone(698,'sine',.12,.13);tone(880,'sine',.12,.13,.13);},
+  timeout(){tone(440,'square',.08,.16);tone(330,'square',.08,.16,.1);tone(220,'square',.1,.2,.2);},
+  branch(){[523,659,784,659,784,1047,784,1047,1319].forEach((f,i)=>tone(f,'sine',.2,.24,i*.1));},
+  dayEnd(){[1047,988,880,784].forEach((f,i)=>tone(f,'sine',.18,.17,i*.1));},
+  dayStart(){[523,659,784,1047].forEach((f,i)=>tone(f,'sine',.15,.19,i*.08));},
+};
+const BGM_S=[523,587,659,698,784,880,988,1047],BGM_BS=[262,294,330,349,392,440,494,523];
+const BGM_P=[[0,2,4],[3,5,0],[4,6,1],[2,4,6]];
+function startBGM(){if(bgmT)return;bgmB=0;bgmT=setInterval(()=>{if(!musicOn)return;const s=bgmB%32,ci=Math.floor(s/8)%BGM_P.length;if(s%2===0)tone(BGM_BS[BGM_P[ci][0]],'triangle',.28,.052);if([0,3,6,9,12,15,18,21,24,27].includes(s)){const ni=BGM_P[ci][Math.floor(Math.random()*BGM_P[ci].length)];tone(BGM_S[ni],'sine',.22,.035);}nz(.05,.05,6500);bgmB++;},220);}
+function stopBGM(){if(bgmT){clearInterval(bgmT);bgmT=null;}}
+function toggleMusic(){musicOn=!musicOn;const b=document.getElementById('btn-music');if(musicOn){startBGM();if(b)b.textContent='🎵';toast('🎵 音樂開啟');}else{stopBGM();if(b)b.textContent='🔇';toast('🔇 音樂關閉');}SFX.tap();}
+
+/* ═══════════════════════════
+   PARTICLES (Canvas FX)
+═══════════════════════════ */
+const fxCanvas=document.getElementById('fx');
+const fxCtx=fxCanvas.getContext('2d');
+let particles=[];
+function resizeFX(){fxCanvas.width=window.innerWidth;fxCanvas.height=window.innerHeight;}
+window.addEventListener('resize',resizeFX);resizeFX();
+
+function addParticles(x,y,cfg={}){
+  const {count=10,speed=120,spread=Math.PI*2,angle=-Math.PI/2,gravity=200,life=.8,colors=['#fbbf24','#f97316','#fff'],size=6,type='circle'}=cfg;
+  for(let i=0;i<count;i++){
+    const a=angle+(Math.random()-.5)*spread,sp=speed*(.5+Math.random()*.5);
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,ay:gravity,life,maxLife:life,
+      color:colors[Math.floor(Math.random()*colors.length)],size:size*(.5+Math.random()*.5),
+      rot:Math.random()*Math.PI*2,rotSpd:(Math.random()-.5)*8,type,alpha:1});
+  }
+}
+function burstCoin(x,y){addParticles(x,y,{count:12,speed:160,gravity:280,life:.9,size:8,type:'star',colors:['#fbbf24','#ffd700','#fff','#f97316']});addParticles(x,y,{count:18,speed:80,gravity:80,life:.5,size:3,type:'spark',colors:['#fbbf24','#fff']});}
+function burstDone(x,y){addParticles(x,y,{count:14,speed:190,angle:-Math.PI/2,spread:Math.PI*1.5,gravity:240,life:1,size:10,type:'star',colors:['#10b981','#fbbf24','#fff','#34d399']});addParticles(x,y,{count:22,speed:90,gravity:50,life:.55,size:4,type:'spark',colors:['#10b981','#fff']});}
+function burstFail(x,y){addParticles(x,y,{count:10,speed:100,gravity:100,life:.6,size:6,colors:['#ef4444','#fca5a5','#fff']});}
+function burstLvUp(x,y){for(let r=0;r<3;r++)setTimeout(()=>addParticles(x,y,{count:20,speed:180+r*40,gravity:-30,life:1.2,size:8,type:'star',colors:['#fbbf24','#f97316','#fff','#ffd700']}),r*100);}
+function burstSizzle(x,y){addParticles(x,y,{count:7,speed:55,angle:-Math.PI/2,spread:Math.PI/2,gravity:15,life:.5,size:5,type:'smoke',colors:['#fff','#d4d4d4','#a3a3a3']});}
+
+let lastT=0;
+function fxLoop(ts){
+  requestAnimationFrame(fxLoop);
+  const dt=Math.min((ts-lastT)/1000,.05);lastT=ts;
+  fxCtx.clearRect(0,0,fxCanvas.width,fxCanvas.height);
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];p.life-=dt;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.ay*dt;p.rot+=p.rotSpd*dt;
+    const t=p.life/p.maxLife;
+    if(p.type==='smoke'){p.vx*=(1-dt*2);p.size+=dt*12;p.alpha=t*.45;}
+    else if(p.type==='spark'){p.alpha=t;p.vx*=(1-dt*3);}
+    else p.alpha=t;
+    fxCtx.save();fxCtx.globalAlpha=Math.max(0,p.alpha);fxCtx.fillStyle=p.color;
+    if(p.type==='star'){
+      fxCtx.translate(p.x,p.y);fxCtx.rotate(p.rot);
+      const s=p.size*t;fxCtx.beginPath();
+      for(let k=0;k<8;k++){const a=k*Math.PI/4,r=k%2===0?s:s*.4;fxCtx.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
+      fxCtx.closePath();fxCtx.fill();
+    } else if(p.type==='spark'){
+      fxCtx.strokeStyle=p.color;fxCtx.lineWidth=p.size*.5;fxCtx.beginPath();
+      fxCtx.moveTo(p.x,p.y);fxCtx.lineTo(p.x-p.vx*.04,p.y-p.vy*.04);fxCtx.stroke();
+    } else if(p.type==='smoke'){
+      fxCtx.globalAlpha=Math.max(0,p.alpha*.4);fxCtx.beginPath();fxCtx.arc(p.x,p.y,p.size,0,Math.PI*2);fxCtx.fill();
+    } else {
+      fxCtx.beginPath();fxCtx.arc(p.x,p.y,p.size*t,0,Math.PI*2);fxCtx.fill();
+    }
+    fxCtx.restore();
+  }
+  // Vignette
+  const vg=fxCtx.createRadialGradient(fxCanvas.width/2,fxCanvas.height/2,fxCanvas.height*.3,fxCanvas.width/2,fxCanvas.height/2,fxCanvas.width*.8);
+  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,0.45)');
+  fxCtx.fillStyle=vg;fxCtx.fillRect(0,0,fxCanvas.width,fxCanvas.height);
+}
+requestAnimationFrame(fxLoop);
+
+/* ═══════════════════════════
+   SHOP CANVAS (in-game background)
+═══════════════════════════ */
+let shopCanvas,shopCtx,shopAnim=0;
+function initShopCanvas(){
+  shopCanvas=document.getElementById('shop-canvas');
+  const scene=document.getElementById('shop-scene');
+  shopCanvas.width=scene.offsetWidth||window.innerWidth;
+  shopCanvas.height=scene.offsetHeight||260;
+  shopCtx=shopCanvas.getContext('2d');
+  drawShop();
+}
+function drawShop(){
+  if(!shopCtx)return;
+  const W=shopCanvas.width,H=shopCanvas.height;
+  shopCtx.clearRect(0,0,W,H);
+  // Sky
+  const sky=shopCtx.createLinearGradient(0,0,0,H*.4);
+  sky.addColorStop(0,'#6ec6f0');sky.addColorStop(1,'#b8e4f8');
+  shopCtx.fillStyle=sky;shopCtx.fillRect(0,0,W,H*.4);
+  // Ground
+  const grd=shopCtx.createLinearGradient(0,H*.4,0,H);
+  grd.addColorStop(0,'#f5e6c8');grd.addColorStop(1,'#e8d4a0');
+  shopCtx.fillStyle=grd;shopCtx.fillRect(0,H*.4,W,H*.6);
+  // Sun
+  const sx=W*.82,sy=H*.1,sr=18;
+  const sunG=shopCtx.createRadialGradient(sx,sy,0,sx,sy,sr*3);
+  sunG.addColorStop(0,'rgba(255,215,0,.3)');sunG.addColorStop(1,'rgba(255,215,0,0)');
+  shopCtx.fillStyle=sunG;shopCtx.beginPath();shopCtx.arc(sx,sy,sr*3,0,Math.PI*2);shopCtx.fill();
+  shopCtx.fillStyle='#ffd700';shopCtx.beginPath();shopCtx.arc(sx,sy,sr,0,Math.PI*2);shopCtx.fill();
+  // Building
+  const bW=Math.min(W*.9,320),bX=(W-bW)/2,bH=H*.72,bY=H-bH;
+  // Shadow
+  shopCtx.fillStyle='rgba(0,0,0,.2)';shopCtx.fillRect(bX+4,bY+4,bW,bH);
+  // Wall gradient
+  const wg=shopCtx.createLinearGradient(0,bY,0,bY+bH);
+  wg.addColorStop(0,'#d45020');wg.addColorStop(1,'#8c2e10');
+  shopCtx.fillStyle=wg;shopCtx.fillRect(bX,bY,bW,bH);
+  // Brick lines
+  shopCtx.strokeStyle='rgba(0,0,0,.15)';shopCtx.lineWidth=1;
+  for(let row=0;row<8;row++){shopCtx.beginPath();shopCtx.moveTo(bX,bY+row*(bH/8));shopCtx.lineTo(bX+bW,bY+row*(bH/8));shopCtx.stroke();}
+  // Roof stripes
+  const sw=20;
+  for(let x=bX;x<bX+bW;x+=sw*2){shopCtx.fillStyle='#fbbf24';shopCtx.fillRect(x,bY,sw,10);shopCtx.fillStyle='#fff';shopCtx.fillRect(x+sw,bY,sw,10);}
+  shopCtx.strokeStyle='#1a0a00';shopCtx.lineWidth=2;shopCtx.strokeRect(bX,bY,bW,10);
+  // Sign bar
+  shopCtx.fillStyle='#fbbf24';shopCtx.fillRect(bX,bY+10,bW,26);
+  shopCtx.strokeStyle='#1a0a00';shopCtx.lineWidth=2;shopCtx.strokeRect(bX,bY+10,bW,26);
+  // Sign text
+  shopCtx.fillStyle='#1a0a00';shopCtx.font='bold 13px "Noto Sans TC",system-ui,sans-serif';
+  shopCtx.textAlign='center';shopCtx.textBaseline='middle';
+  const br=S.branches&&S.branches[S.branchIdx||0];
+  shopCtx.fillText(br?.shopName||S.charName+'的早餐店',bX+bW/2,bY+23);
+  // Window
+  shopCtx.fillStyle='rgba(135,206,235,.4)';shopCtx.fillRect(bX+8,bY+40,bW-16,50);
+  shopCtx.strokeStyle='#1a0a00';shopCtx.lineWidth=2;shopCtx.strokeRect(bX+8,bY+40,bW-16,50);
+  // Window cross
+  shopCtx.beginPath();shopCtx.moveTo(bX+bW/2,bY+40);shopCtx.lineTo(bX+bW/2,bY+90);shopCtx.stroke();
+  shopCtx.beginPath();shopCtx.moveTo(bX+8,bY+65);shopCtx.lineTo(bX+bW-8,bY+65);shopCtx.stroke();
+  // Door
+  const dW=44,dX=bX+bW/2-dW/2;
+  shopCtx.fillStyle='#6b3a2a';shopCtx.fillRect(dX,bY+bH-60,dW,60);
+  shopCtx.strokeStyle='#1a0a00';shopCtx.lineWidth=2;shopCtx.strokeRect(dX,bY+bH-60,dW,60);
+  shopCtx.fillStyle='#fbbf24';shopCtx.beginPath();shopCtx.arc(dX+dW-8,bY+bH-30,3,0,Math.PI*2);shopCtx.fill();
+  // Outer border
+  shopCtx.strokeStyle='#1a0a00';shopCtx.lineWidth=3;
+  shopCtx.beginPath();shopCtx.moveTo(bX,bY);shopCtx.lineTo(bX,bY+bH);shopCtx.lineTo(bX+bW,bY+bH);shopCtx.lineTo(bX+bW,bY);shopCtx.closePath();shopCtx.stroke();
+  // Light glow over sign
+  const lg=shopCtx.createLinearGradient(0,bY,0,bY+40);
+  lg.addColorStop(0,'rgba(251,191,36,.2)');lg.addColorStop(1,'rgba(251,191,36,0)');
+  shopCtx.fillStyle=lg;shopCtx.fillRect(bX,bY,bW,40);
+  // Store building rect for particle targeting
+  window._shopRect={x:bX+bW*.5,y:bY+40,w:bW,h:bH};
+}
+
+/* ═══════════════════════════
+   ANIMATED CHARACTERS
+═══════════════════════════ */
+let chars=[];
+function addChar(id,emoji,state='entering'){
+  const layer=document.getElementById('chars-layer');if(!layer)return;
+  const el=document.createElement('div');
+  el.id='ch-'+id;el.dataset.cstate=state;el.dataset.age='0';
+  el.style.cssText='display:flex;flex-direction:column;align-items:center;position:relative;flex-shrink:0;transition:opacity .4s';
+  el.innerHTML=`<div class="ch-body" style="font-size:1.6rem;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.4));animation:${state==='entering'?'none':'bob 1s ease infinite alternate'}">${emoji}</div>`;
+  if(state==='entering'){el.style.transform='translateX(-40px)';el.style.opacity='0';}
+  layer.appendChild(el);
+  requestAnimationFrame(()=>{el.style.transform='translateX(0)';el.style.opacity='1';});
+  setTimeout(()=>{const b=el.querySelector('.ch-body');if(b)b.style.animation='bob 1s ease infinite alternate';},500);
+  chars.push({id,el});
+}
+function charBubble(id,text,dur=2000){
+  const el=document.getElementById('ch-'+id);if(!el)return;
+  const old=el.querySelector('.bubble');if(old)old.remove();
+  const bub=document.createElement('div');bub.className='bubble';
+  bub.style.cssText='position:absolute;bottom:105%;left:50%;transform:translateX(-50%);background:#fff;border:2px solid #1a0a00;border-radius:8px;padding:3px 8px;font-size:.58rem;font-weight:900;color:#1a0a00;white-space:nowrap;box-shadow:2px 2px 0 #1a0a00;animation:bubblePop .3s ease';
+  bub.textContent=text;el.appendChild(bub);
+  setTimeout(()=>bub.remove(),dur);
+}
+function charHappy(id){
+  const el=document.getElementById('ch-'+id);if(!el)return;
+  const b=el.querySelector('.ch-body');if(b)b.style.animation='happyJump .35s ease 2';
+  charBubble(id,'謝謝！',800);
+  setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),400);},900);
+}
+function charAngry(id){
+  const el=document.getElementById('ch-'+id);if(!el)return;
+  const b=el.querySelector('.ch-body');if(b)b.style.animation='angryShake .15s ease 4';
+  charBubble(id,'太慢了！',700);
+  setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),400);},800);
+}
+
+/* ═══════════════════════════
+   UI HELPERS
+═══════════════════════════ */
+let _toastT=null;
+function toast(msg,dur=2000){const t=document.getElementById('toast');if(!t)return;if(_toastT)clearTimeout(_toastT);t.textContent=msg;t.classList.add('on');_toastT=setTimeout(()=>t.classList.remove('on'),dur);}
+function showCombo(n){const el=document.getElementById('combo');if(!el)return;el.textContent='🔥 COMBO ×'+n+'!';el.style.opacity='1';setTimeout(()=>el.style.opacity='0',900);}
+function txt(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+function goScreen(id){
+  SFX.tap();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  const sc=document.getElementById(id);if(sc)sc.classList.add('on');
+  if(id==='s-game'){refreshHUD();drawShop();}
+  if(id==='s-map'){refreshMap();}
+  if(id==='s-friends'){refreshFriends();}
+  if(id==='s-profile'){refreshProfile();}
+}
+
+/* ═══════════════════════════
+   AUTH
+═══════════════════════════ */
+function ltab(tab){
+  document.querySelectorAll('.tb').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.querySelector(`.tb[onclick="ltab('${tab}')"]`)?.classList.add('on');
+  document.getElementById('p-'+tab)?.classList.add('on');
+  SFX.tap();
+}
+function doLogin(){
+  rnm();
+  const email=(document.getElementById('li-email')?.value.trim())||'demo@demo.com';
+  let users={};try{users=JSON.parse(localStorage.getItem('bk3_users')||'{}');}catch(e){}
+  let user=Object.values(users).find(u=>u.email===email);
+  if(!user){user={id:genId(),email,name:email.split('@')[0]};users[user.id]=user;localStorage.setItem('bk3_users',JSON.stringify(users));}
+  localStorage.setItem('bk3_lu',JSON.stringify(user));
+  const saved=load(user.id)||freshState();saved.user=user;S=saved;
+  if(!saved.char){goScreen('s-char');}else{startGame();}
+}
+function doFB(){
+  rnm();
+  let fbId=localStorage.getItem('bk3_fb');if(!fbId){fbId='FB'+genId();localStorage.setItem('bk3_fb',fbId);}
+  const u={id:fbId,email:'fb_'+fbId+'@fb.com',name:'Facebook用戶'};
+  let users={};try{users=JSON.parse(localStorage.getItem('bk3_users')||'{}');}catch(e){}
+  users[fbId]=u;localStorage.setItem('bk3_users',JSON.stringify(users));localStorage.setItem('bk3_lu',JSON.stringify(u));
+  const saved=load(fbId)||freshState();saved.user=u;S=saved;
+  if(!saved.char){goScreen('s-char');}else{startGame();}
+}
+function doReg(){
+  rnm();
+  const name=document.getElementById('rg-name')?.value.trim();
+  const email=document.getElementById('rg-email')?.value.trim();
+  const pass=document.getElementById('rg-pass')?.value;
+  if(!name||!email||!pass){toast('⚠️ 請填寫所有欄位');return;}
+  if(pass.length<6){toast('⚠️ 密碼至少6字元');return;}
+  let users={};try{users=JSON.parse(localStorage.getItem('bk3_users')||'{}');}catch(e){}
+  if(Object.values(users).find(u=>u.email===email)){toast('⚠️ 此信箱已被使用');return;}
+  const user={id:genId(),email,name};users[user.id]=user;
+  localStorage.setItem('bk3_users',JSON.stringify(users));localStorage.setItem('bk3_lu',JSON.stringify(user));
+  S=freshState();S.user=user;goScreen('s-char');
+}
+function doLogout(){
+  save();localStorage.removeItem('bk3_lu');
+  S=freshState();stopBGM();clearAllOrders();clearInterval(_dayTimer);
+  goScreen('s-login');toast('👋 已登出');
+}
+
+/* ═══════════════════════════
+   CHAR SELECT
+═══════════════════════════ */
+let _selChar=null;
+function selChar(type){
+  _selChar=type;SFX.tap();
+  document.getElementById('cc-boy').classList.toggle('on',type==='boy');
+  document.getElementById('cc-girl').classList.toggle('on',type==='girl');
+  document.getElementById('name-row').style.display='flex';
+  document.getElementById('char-name').value=type==='boy'?'小明':'小美';
+}
+function confirmChar(){
+  if(!_selChar){toast('⚠️ 請先選擇角色');return;}
+  const name=document.getElementById('char-name').value.trim()||(_selChar==='boy'?'小明':'小美');
+  S.char=_selChar;S.charName=name;
+  S.branches=[{cityId:'taipei',cityName:'台北',shopName:name+'的台北早餐店',passive:1200}];
+  S.branchIdx=0;S.dayGoal=2000;save();startGame();
+}
+
+/* ═══════════════════════════
+   GAME START
+═══════════════════════════ */
+let _dayTimer=null,_dayLeft=DAY_SEC,_dayRunning=false,_dayEnded=false;
+let _orders=[],_oid=0,_spawnT=null,_autoTs=[];
+
+function startGame(){
+  buildMenuTab();buildStaffTab();buildBuyTab();buildStatsTab();
+  refreshHUD();
+  goScreen('s-game');
+  setTimeout(()=>{initShopCanvas();drawShop();},80);
+  startBGM();
+  _dayLeft=DAY_SEC;_dayRunning=true;_dayEnded=false;
+  startDayTimer();spawnOrder();
+  _spawnT=setInterval(()=>{if(_orders.length<MAX_ORD&&_dayRunning)spawnOrder();},4000);
+  startAutoStaff();
+  startPassiveInc();
+  toast('🎉 '+getBranch()?.shopName+'開張！');
+}
+
+/* ═══════════════════════════
+   DAY TIMER
+═══════════════════════════ */
+function startDayTimer(){
+  clearInterval(_dayTimer);
+  _dayTimer=setInterval(()=>{
+    if(!_dayRunning)return;
+    _dayLeft--;updateDayBar();
+    if(_dayLeft<=0){_dayRunning=false;endDay();}
+  },1000);
+}
+function updateDayBar(){
+  const pct=Math.max(0,(1-_dayLeft/DAY_SEC))*100;
+  const f=document.getElementById('dbar');if(f)f.style.width=pct+'%';
+  const m=Math.floor(_dayLeft/60),sec=Math.floor(_dayLeft%60);
+  txt('dtime',(m<10?'0':'')+m+':'+(sec<10?'0':'')+sec);
+  txt('dgoal','$'+(S.dayGoal||0).toLocaleString());
+  txt('dearned','$'+(S.dayRev||0).toLocaleString());
+}
+function endDay(){
+  if(_dayEnded)return;_dayEnded=true;
+  SFX.dayEnd();clearAllOrders();
+  let salary=0;S.hired.forEach(h=>{const c=STAFF_CAT.find(x=>x.id===h.id);if(c)salary+=c.salary;});
+  S.money=Math.max(0,S.money-salary);
+  const met=S.dayRev>=(S.dayGoal||0);
+  const pct=S.dayGoal>0?Math.min(100,Math.floor(S.dayRev/S.dayGoal*100)):100;
+  if(met){
+    EXPAND.forEach(e=>{
+      if(!S.branches.find(b=>b.cityId===e.id))
+        if(S.dayRev>=e.need*.8)S.bprog[e.id]=(S.bprog[e.id]||0)+1;
+    });
+  }
+  save();
+  showModal(met?'🎊':'😓',`第 ${S.dayCount} 天結束`,
+    `今日營收：<strong>$${S.dayRev.toLocaleString()}</strong><br>
+     今日目標：<strong>$${(S.dayGoal||0).toLocaleString()}</strong><br>
+     達成率：<strong style="color:${met?'#22c55e':'#ef4444'}">${pct}%</strong><br>
+     ${salary>0?`員工薪資：<strong style="color:#ef4444">-$${salary}</strong><br>`:''}
+     ${met?'<br>🎉 目標達成！展店進度增加！':'<br>💪 繼續加油！'}`,
+    `前往第 ${S.dayCount+1} 天 →`,
+    ()=>{S.dayCount++;S.dayRev=0;S.dayGoal=Math.floor((CITIES[getBranch()?.cityId]?.avgP||40)*50*(1+S.branches.length*.1));save();_dayLeft=DAY_SEC;_dayRunning=true;_dayEnded=false;SFX.dayStart();refreshHUD();startDayTimer();spawnOrder();_spawnT=setInterval(()=>{if(_orders.length<MAX_ORD&&_dayRunning)spawnOrder();},4000);startAutoStaff();}
+  );
+}
+
+/* ═══════════════════════════
+   ORDERS
+═══════════════════════════ */
+function spawnOrder(){
+  if(!_dayRunning||!getBranch())return;
+  const item=MENU[Math.floor(Math.random()*MENU.length)];
+  const cust=CEm[Math.floor(Math.random()*CEm.length)];
+  const id=++_oid;
+  const tmax=ORD_SEC+(S.purchItems.includes('tv')?5:0);
+  const card=document.createElement('div');
+  card.className='ocard';card.id='oc-'+id;
+  card.innerHTML=`<div class="oc-em">${cust}</div><div style="font-size:1.25rem;line-height:1">${item.e}</div><div class="oc-name">${item.n}</div><div class="oc-price">+$${item.p}</div><div class="ot"><div class="otb" id="otb-${id}"></div></div>`;
+  document.getElementById('orders-row')?.appendChild(card);
+  requestAnimationFrame(()=>card.classList.add('show'));
+  let rem=tmax;
+  const ti=setInterval(()=>{
+    rem--;const pct=(rem/tmax)*100;
+    const bar=document.getElementById('otb-'+id);
+    if(bar){bar.style.width=pct+'%';bar.style.background=pct>50?'#22c55e':pct>25?'#f59e0b':'#ef4444';}
+    if(rem<=5)card.classList.add('hot');
+    if(rem<=0){clearInterval(ti);expireOrder(id);}
+  },1000);
+  _orders.push({id,item,cust,ti,el:card,rem:tmax,tmax});
+  SFX.bell();addChar(id,cust);charBubble(id,'我要'+item.n+'！',2200);
+  updateWanted();
+}
+function expireOrder(id){
+  const idx=_orders.findIndex(o=>o.id===id);if(idx<0)return;
+  const o=_orders[idx];clearInterval(o.ti);
+  o.el.classList.remove('show');o.el.classList.add('fail');
+  setTimeout(()=>o.el?.remove(),400);
+  _orders.splice(idx,1);
+  S.combo=0;S.rating=Math.max(1,S.rating-.1);
+  charAngry(id);SFX.timeout();
+  const r=window._shopRect;if(r)burstFail(r.x,r.y+40);
+  toast('😤 顧客等太久走了！',1600);save();refreshHUD();updateWanted();
+}
+function fulfillOrder(itemId){
+  const idx=_orders.findIndex(o=>o.item.id===itemId);if(idx<0)return false;
+  const o=_orders[idx];clearInterval(o.ti);
+  const sp=o.rem/o.tmax,bon=sp>.6?Math.floor(o.item.p*.3):0;
+  const earned=o.item.p+bon;
+  S.money+=earned;S.totalInc+=earned;S.dayRev+=earned;S.cooked++;S.xp+=o.item.xp;
+  S.combo=(S.combo||0)+1;if(S.combo>S.bestCombo)S.bestCombo=S.combo;
+  o.el.classList.remove('show');o.el.classList.add('done');
+  setTimeout(()=>o.el?.remove(),400);_orders.splice(idx,1);
+  charHappy(o.id);SFX.ok();SFX.coin();
+  const r=window._shopRect;if(r){burstDone(r.x,r.y+40);if(bon>0)burstCoin(r.x+60,r.y+20);}
+  toast(bon>0?`${o.item.e} 快速送餐！+$${earned}（獎勵$${bon}）`:`${o.item.e} ${o.item.n} 完成！+$${earned}`,1800);
+  if(S.combo>=3)showCombo(S.combo);
+  const nt=getTitle(S.totalInc);
+  if(nt.lv>S.lv){S.lv=nt.lv;SFX.lv();burstLvUp(window.innerWidth/2,window.innerHeight*.4);setTimeout(()=>toast(`🎊 升級！「${nt.t}」Lv.${nt.lv}！`,3000),400);}
+  save();refreshHUD();checkAchs();updateWanted();
+  txt('dearned','$'+(S.dayRev||0).toLocaleString());
+  return true;
+}
+function clearAllOrders(){
+  _orders.forEach(o=>{clearInterval(o.ti);o.el?.remove();});_orders=[];
+  clearInterval(_spawnT);_spawnT=null;
+}
+function updateWanted(){
+  MENU.forEach(it=>{const b=document.getElementById('mb-'+it.id);if(b)b.classList.toggle('want',_orders.some(o=>o.item.id===it.id));});
+}
+
+/* ═══════════════════════════
+   COOK
+═══════════════════════════ */
+function cookItem(item){
+  const btn=document.getElementById('mb-'+item.id);if(btn?.classList.contains('cooking'))return;
+  if(btn)btn.classList.add('cooking');
+  SFX.sizzle();const r=window._shopRect;if(r)burstSizzle(r.x+40,r.y+20);
+  let spd=0;S.hired.forEach(h=>{const c=STAFF_CAT.find(x=>x.id===h.id);if(c)spd+=c.spd||0;});
+  if(S.purchItems.includes('fridge'))spd+=.15;
+  const ms=item.t*1000*Math.max(.2,1-spd);
+  setTimeout(()=>{
+    if(btn)btn.classList.remove('cooking');
+    if(!fulfillOrder(item.id)){
+      const e=Math.floor(item.p*.7);S.money+=e;S.totalInc+=e;S.dayRev+=e;S.cooked++;S.combo=0;
+      SFX.done();SFX.coin();toast(`${item.e} 零散販售 +$${e}（無訂單）`,1800);
+      if(r)burstCoin(r.x,r.y+30);save();refreshHUD();txt('dearned','$'+(S.dayRev||0).toLocaleString());
+    }
+  },ms);
+}
+
+/* ═══════════════════════════
+   BUILD TABS
+═══════════════════════════ */
+function buildMenuTab(){
+  const el=document.getElementById('pc-cook');if(!el)return;
+  let h='<div class="mgrid">';
+  MENU.forEach(it=>{h+=`<div class="mbtn" id="mb-${it.id}" onclick="cookItem(${JSON.stringify(it).replace(/"/g,"'")})"><span class="me">${it.e}</span><div class="mn">${it.n}</div><div class="mp">$${it.p}</div><div class="mt">${it.t}秒</div></div>`;});
+  h+='</div>';el.innerHTML=h;
+}
+function buildStaffTab(){
+  const el=document.getElementById('pc-staff');if(!el)return;
+  let h='';
+  if(S.hired.length){
+    h+='<div style="color:#fbbf24;font-size:.72rem;font-weight:900;margin-bottom:6px">✅ 在職員工</div>';
+    S.hired.forEach((h2,i)=>{const c=STAFF_CAT.find(x=>x.id===h2.id);if(!c)return;
+      h+=`<div class="srow"><span style="font-size:1.4rem">${c.e}</span><div class="srow-info"><div class="srow-name">${c.n} ${c.b}</div><div class="srow-desc">${c.d}</div><div class="srow-cost">日薪 $${c.salary}</div></div><button class="abtn r" onclick="fireStaff(${i})">解雇</button></div>`;
+    });
+    h+='<div style="color:#fbbf24;font-size:.72rem;font-weight:900;margin:8px 0 6px">💼 應徵</div>';
+  } else {h+='<div style="color:#fbbf24;font-size:.72rem;font-weight:900;margin-bottom:6px">💼 應徵員工</div>';}
+  STAFF_CAT.forEach(c=>{const hired=S.hired.some(h=>h.id===c.id);const can=S.money>=c.salary*2;
+    h+=`<div class="srow"><span style="font-size:1.4rem">${c.e}</span><div class="srow-info"><div class="srow-name">${c.n} ${c.b}</div><div class="srow-desc">${c.d}</div><div class="srow-cost">日薪 $${c.salary}</div></div><button class="abtn ${hired||!can?'':'a'}" ${hired||!can?'disabled':''} onclick="hireStaff('${c.id}')">${hired?'已聘':can?'聘用':'錢不足'}</button></div>`;
+  });
+  el.innerHTML=h;
+}
+function buildBuyTab(){
+  const el=document.getElementById('pc-buy');if(!el)return;
+  const items=[
+    {id:'fridge',e:'🧊',n:'冰箱',d:'烹飪速度+15%',cost:800},
+    {id:'tv',e:'📺',n:'電視',d:'訂單時限+5秒',cost:500},
+    {id:'speaker',e:'🎵',n:'音響',d:'顧客滿意+10%',cost:400},
+    {id:'sign',e:'✨',n:'招牌燈',d:'客流+15%',cost:700},
+    {id:'plant',e:'🌿',n:'盆栽',d:'評分+0.2',cost:200},
+  ];
+  let h='<div style="color:#fbbf24;font-size:.72rem;font-weight:900;margin-bottom:6px">🛒 購買設備</div>';
+  items.forEach(it=>{const owned=S.purchItems.includes(it.id);
+    h+=`<div class="srow"><span style="font-size:1.4rem">${it.e}</span><div class="srow-info"><div class="srow-name">${it.n}${owned?' ✅':''}</div><div class="srow-desc">${it.d}</div><div class="srow-cost">${owned?'已購買':'$'+it.cost.toLocaleString()}</div></div><button class="abtn ${owned?'':'a'}" ${owned?'disabled':''} onclick="buyEquip('${it.id}',${it.cost})">${owned?'擁有':'購買'}</button></div>`;
+  });
+  el.innerHTML=h;
+}
+function buildStatsTab(){
+  const el=document.getElementById('pc-stats');if(!el)return;
+  const pct=S.dayGoal>0?Math.min(100,Math.floor((S.dayRev||0)/S.dayGoal*100)):0;
+  const canExp=EXPAND.some(e=>!S.branches.find(b=>b.cityId===e.id)&&(S.bprog[e.id]||0)>=e.days);
+  el.innerHTML=`
+    <div class="sgrid">
+      <div class="scrd"><div class="sv">${S.branches.length}</div><div class="sl">分店數</div></div>
+      <div class="scrd"><div class="sv">${S.cooked}</div><div class="sl">總銷售</div></div>
+      <div class="scrd"><div class="sv">$${(S.totalInc||0).toLocaleString()}</div><div class="sl">累積收入</div></div>
+      <div class="scrd"><div class="sv">${(S.rating||4).toFixed(1)}</div><div class="sl">評分</div></div>
+      <div class="scrd"><div class="sv">${S.bestCombo||0}</div><div class="sl">最高Combo</div></div>
+      <div class="scrd"><div class="sv">${S.hired.length}</div><div class="sl">員工數</div></div>
+    </div>
+    <div class="gcrd">
+      <div style="color:#1a0a00;font-size:.82rem;font-weight:900;margin-bottom:5px">🏆 今日展店目標</div>
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:#7c3d00;font-weight:700;margin-bottom:3px">
+        <span>需達：<strong style="color:#f97316">$${(S.dayGoal||0).toLocaleString()}</strong></span>
+        <span>已賺：<strong style="color:#22c55e">$${(S.dayRev||0).toLocaleString()}</strong></span>
+      </div>
+      <div class="gbar"><div class="gbarf" style="width:${pct}%"></div><span class="gpct">${pct}%</span></div>
+      <button class="btn-g" style="min-height:42px" onclick="goScreen('s-map')" ${canExp?'':'disabled'}>🗺️ 前往開立分店</button>
+    </div>`;
+}
+
+/* ═══════════════════════════
+   STAFF / EQUIP ACTIONS
+═══════════════════════════ */
+function hireStaff(id){
+  const c=STAFF_CAT.find(x=>x.id===id);if(!c)return;
+  if(S.hired.some(h=>h.id===id)){toast('⚠️ 已聘用');return;}
+  const dep=c.salary*2;if(S.money<dep){toast(`💸 需要 $${dep}（保證金）`);return;}
+  S.money-=dep;S.hired.push({id,branch:S.branchIdx});save();refreshHUD();buildStaffTab();startAutoStaff();toast(`✅ 已聘用 ${c.n}！`);SFX.ok();
+}
+function fireStaff(i){const h=S.hired[i];if(!h)return;const c=STAFF_CAT.find(x=>x.id===h.id);S.hired.splice(i,1);save();refreshHUD();buildStaffTab();startAutoStaff();toast(`👋 ${c?.n||'員工'} 已離職`);SFX.bad();}
+function buyEquip(id,cost){
+  if(S.purchItems.includes(id)){toast('⚠️ 已購買');return;}
+  if(S.money<cost){toast('💸 金錢不足！');return;}
+  S.money-=cost;S.purchItems.push(id);save();refreshHUD();buildBuyTab();SFX.done();toast('✅ 購買成功！');
+  const r=window._shopRect;if(r)burstCoin(r.x,r.y+30);
+}
+function startAutoStaff(){
+  _autoTs.forEach(clearInterval);_autoTs=[];
+  S.hired.forEach(h=>{const c=STAFF_CAT.find(x=>x.id===h.id);if(c?.auto&&c.int){const iv=setInterval(()=>{if(_orders.length>0)fulfillOrder(_orders[0].item.id);},c.int*1000);_autoTs.push(iv);}});
+}
+let _passT=null;
+function startPassiveInc(){clearInterval(_passT);_passT=setInterval(()=>{if(S.branches.length<=1)return;let p=0;S.branches.slice(1).forEach(b=>{const c=CITIES[b.cityId];if(c)p+=Math.floor(c.pass/120);});if(p>0){S.money+=p;S.totalInc+=p;save();refreshHUD();toast(`💼 分店被動 +$${p}`,1200);}},30000);}
+
+/* ═══════════════════════════
+   HUD / UI REFRESH
+═══════════════════════════ */
+function refreshHUD(){
+  const av=S.char==='boy'?'👦':'👧';
+  const td=getTitle(S.totalInc||0);
+  txt('hud-av',av);txt('hud-name',S.charName||'小老闆');txt('hud-lv',td.lv);txt('hud-title',td.t);
+  txt('hud-money',(S.money||0).toLocaleString());
+  updateDayBar();
+}
+function ptab(tab){
+  SFX.tap();
+  document.querySelectorAll('.pt').forEach(b=>b.classList.toggle('on',b.getAttribute('onclick').includes("'"+tab+"'")));
+  ['cook','staff','buy','stats'].forEach(t=>{const e=document.getElementById('pc-'+t);if(e)e.classList.toggle('on',t===tab);});
+  if(tab==='stats')buildStatsTab();if(tab==='staff')buildStaffTab();if(tab==='buy')buildBuyTab();
+}
+
+/* ═══════════════════════════
+   MAP
+═══════════════════════════ */
+let _selCity=null;
+function refreshMap(){
+  txt('map-money',(S.money||0).toLocaleString());
+  const g=document.getElementById('city-dots');if(!g)return;
+  g.innerHTML='';
+  Object.entries(CITIES).forEach(([cid,c])=>{
+    const owned=S.branches.find(b=>b.cityId===cid);
+    const exp=EXPAND.find(e=>e.id===cid);
+    const prog=S.bprog[cid]||0;
+    const qual=exp&&prog>=exp.days;
+    const fill=owned?'#f59e0b':qual?'#22c55e':'#6b7280';
+    const r=owned||qual?12:10;
+    const lx=c.cx+((['tainan','kaohsiung','taichung','hsinchu'].includes(cid))?-34:14);
+    g.innerHTML+=`
+      <circle cx="${c.cx}" cy="${c.cy}" r="${r+5}" fill="transparent" onclick="clickCity('${cid}')" style="cursor:pointer"/>
+      <circle cx="${c.cx}" cy="${c.cy}" r="${r}" fill="${fill}" stroke="#1a0a00" stroke-width="2.5" style="cursor:pointer" onclick="clickCity('${cid}')"/>
+      <text x="${lx}" y="${c.cy+4}" fill="${owned||qual?'#1a0a00':'#555'}" font-size="10" font-weight="900" pointer-events="none">${c.n}</text>
+      ${owned?`<text x="${c.cx}" y="${c.cy+4}" text-anchor="middle" font-size="9" fill="white" pointer-events="none">✓</text>`:''}
+    `;
+  });
+}
+function clickCity(cid){
+  SFX.tap();_selCity=cid;
+  const c=CITIES[cid];if(!c)return;
+  const owned=S.branches.find(b=>b.cityId===cid);
+  const exp=EXPAND.find(e=>e.id===cid);
+  const prog=S.bprog[cid]||0;
+  const qual=exp&&prog>=exp.days;
+  txt('mp-city',c.n);
+  document.getElementById('mp-badge').textContent=c.badge;
+  txt('mp-desc',c.d);
+  txt('mp-cost','$'+(exp?.cost||0).toLocaleString());
+  txt('mp-pass','$'+Math.floor(c.pass/120)+'/30秒');
+  const cond=document.getElementById('mp-cond');
+  const btn=document.getElementById('mp-btn');
+  if(owned){
+    cond.classList.remove('on');btn.disabled=true;btn.textContent='已開店';
+  } else if(!exp){
+    cond.classList.add('on');cond.textContent='⚠️ 此城市為起始城市';btn.disabled=true;btn.textContent='無法開店';
+  } else if(!qual){
+    const need=exp.days-prog;
+    cond.classList.add('on');cond.textContent=`需要 ${need} 天以上日營收達 $${exp.need.toLocaleString()} 的80%（目前 ${prog}/${exp.days} 天）`;
+    btn.disabled=true;btn.textContent='條件未達';
+  } else if(S.money<exp.cost){
+    cond.classList.add('on');cond.textContent=`💸 資金不足（需 $${exp.cost.toLocaleString()}）`;
+    btn.disabled=true;btn.textContent='金錢不足';
+  } else {
+    cond.classList.remove('on');btn.disabled=false;btn.textContent=`開立分店（$${exp.cost.toLocaleString()}）`;
+  }
+  document.getElementById('map-popup').style.display='block';
+}
+function closePopup(){document.getElementById('map-popup').style.display='none';_selCity=null;}
+function openBranch(){
+  if(!_selCity)return;
+  const exp=EXPAND.find(e=>e.id===_selCity);const c=CITIES[_selCity];if(!exp||!c)return;
+  if(S.branches.find(b=>b.cityId===_selCity)){toast('⚠️ 已在此城市開店');return;}
+  if(S.money<exp.cost){toast('💸 金錢不足！');return;}
+  if((S.bprog[_selCity]||0)<exp.days){toast('⚠️ 展店條件未達');return;}
+  S.money-=exp.cost;S.branches.push({cityId:_selCity,cityName:c.n,shopName:S.charName+'的'+c.n+'早餐店',passive:c.pass});
+  save();refreshMap();closePopup();SFX.branch();
+  burstLvUp(window.innerWidth/2,window.innerHeight*.4);
+  showModal('🎊','分店開張！',`恭喜在 <strong>${c.n}</strong> 成功開店！<br>每30秒被動收入：<strong style="color:#22c55e">+$${Math.floor(c.pass/120)}</strong>`,'太棒了！🎉',null);
+  checkAchs();
+}
+
+/* ═══════════════════════════
+   FRIENDS
+═══════════════════════════ */
+function refreshFriends(){
+  txt('my-id',S.user?.id||'---');
+  const list=document.getElementById('friends-list');if(!list)return;
+  const fr=S.friends||[];
+  if(!fr.length){list.innerHTML='<div style="color:#7c3d00;text-align:center;padding:16px;font-size:.85rem;font-weight:700">還沒有好友，分享你的 ID 給朋友吧！</div>';return;}
+  list.innerHTML=fr.map((f,i)=>`<div class="fi"><div class="fi-av">${f.char==='girl'?'👧':'👦'}</div><div class="fi-info"><div class="fi-name">${f.name}</div><div class="fi-detail">Lv.${f.lv||1} • ${f.branches||1}間分店</div></div><div class="fi-act">參觀→</div></div>`).join('');
+}
+function copyId(){const id=S.user?.id||'';if(!id)return;navigator.clipboard?.writeText(id).then(()=>toast('📋 ID 已複製！')).catch(()=>toast('ID: '+id,4000));}
+function addFriend(){
+  const inp=document.getElementById('fi-input');if(!inp)return;
+  const fid=inp.value.trim().toUpperCase();
+  if(!fid){toast('⚠️ 請輸入好友 ID');return;}
+  if(fid===S.user?.id){toast('⚠️ 不能加自己');return;}
+  if(!Array.isArray(S.friends))S.friends=[];
+  if(S.friends.find(f=>f.id===fid)){toast('⚠️ 已是好友');return;}
+  let users={};try{users=JSON.parse(localStorage.getItem('bk3_users')||'{}');}catch(e){}
+  const fu=users[fid];if(!fu){toast('⚠️ 找不到此 ID');return;}
+  let fs=null;try{fs=JSON.parse(localStorage.getItem('bk3_'+fid));}catch(e){}
+  const td=getTitle(fs?.totalInc||0);
+  S.friends.push({id:fid,name:fs?.charName||fu.name||'未知',char:fs?.char||'boy',lv:td.lv,branches:fs?.branches?.length||1});
+  inp.value='';save();refreshFriends();toast('✅ 已加入好友！');checkAchs();
+}
+
+/* ═══════════════════════════
+   PROFILE / ACHIEVEMENTS
+═══════════════════════════ */
+function refreshProfile(){
+  if(!S.char)return;
+  const td=getTitle(S.totalInc||0);
+  document.getElementById('prof-av').textContent=S.char==='boy'?'👦':'👧';
+  txt('prof-name',S.charName||'小老闆');
+  txt('prof-title',`Lv.${td.lv} ${td.t}`);
+  const ps=document.getElementById('prof-stats');if(ps)ps.innerHTML=`
+    <div class="scrd"><div class="sv">$${(S.money||0).toLocaleString()}</div><div class="sl">💰 資金</div></div>
+    <div class="scrd"><div class="sv">${S.branches.length}</div><div class="sl">🏪 分店</div></div>
+    <div class="scrd"><div class="sv">${S.cooked||0}</div><div class="sl">🍳 製作</div></div>
+    <div class="scrd"><div class="sv">${S.dayCount||1}</div><div class="sl">📅 天數</div></div>`;
+  const al=document.getElementById('ach-list');if(!al)return;
+  al.innerHTML=ACHS.map(a=>{const un=(S.achs||[]).includes(a.id);return`<div class="scrd" style="${un?'background:#fff8e0;border-color:#f59e0b':''}"><div style="font-size:1.3rem">${un?a.e:'🔒'}</div><div style="font-size:.68rem;font-weight:900;color:#1a0a00">${un?a.n:'???'}</div><div style="font-size:.6rem;color:#7c3d00;font-weight:700">${un?a.d:'繼續努力'}</div></div>`;}).join('');
+}
+function checkAchs(){
+  if(!Array.isArray(S.achs))S.achs=[];
+  ACHS.forEach(a=>{if(!S.achs.includes(a.id)&&a.f(S)){S.achs.push(a.id);setTimeout(()=>toast(`🏆 成就：${a.e} ${a.n}！`,3000),300);}});
+}
+
+/* ═══════════════════════════
+   MODAL
+═══════════════════════════ */
+function showModal(em,title,body,btnTxt,cb){
+  const existing=document.querySelector('.modal-bg');if(existing)existing.remove();
+  const el=document.createElement('div');el.className='modal-bg';
+  el.innerHTML=`<div class="modal-card"><span class="modal-em">${em}</span><div class="modal-title">${title}</div><div class="modal-body">${body}</div><button class="btn-g" id="modal-btn">${btnTxt}</button></div>`;
+  document.body.appendChild(el);
+  document.getElementById('modal-btn').onclick=()=>{el.remove();if(cb)cb();};
+}
+
+/* ═══════════════════════════
+   HELPERS
+═══════════════════════════ */
+function getBranch(){return S.branches&&S.branches[S.branchIdx||0];}
+
+/* ═══════════════════════════
+   AUTO-LOGIN ON LOAD
+═══════════════════════════ */
+(function(){
+  try{
+    const lu=JSON.parse(localStorage.getItem('bk3_lu'));
+    if(lu?.id){
+      const saved=load(lu.id);
+      if(saved&&saved.branches?.length>0){saved.user=lu;S=saved;startGame();return;}
+    }
+  }catch(e){}
+  // Stay on login screen (already visible)
 })();
+
+/* ═══════════════════════════
+   CSS ANIMATIONS (inline)
+═══════════════════════════ */
+const style=document.createElement('style');
+style.textContent=`
+@keyframes bob{from{transform:translateY(0)}to{transform:translateY(-5px)}}
+@keyframes happyJump{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes angryShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@keyframes bubblePop{from{transform:translateX(-50%) scale(0)}to{transform:translateX(-50%) scale(1)}}
+`;
+document.head.appendChild(style);
 </script>
 
 </body>
