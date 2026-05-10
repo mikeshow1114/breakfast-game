@@ -492,6 +492,14 @@ function computeDayGoal(branch){
 }
 function resumeGame(){
   state.dayRevenue=state.dayRevenue||0;
+  // Fix old saves: if layout missing/empty give default
+  state.branches.forEach(br=>{
+    if(!Array.isArray(br.layout)||br.layout.filter(x=>x!==null).length===0){
+      const dl=new Array(30).fill(null);
+      dl[0]='cashier'; dl[1]='stove'; dl[6]='table1'; dl[7]='table1'; dl[12]='counter';
+      br.layout=dl;
+    }
+  });
   initGame();
 }
 
@@ -610,28 +618,80 @@ function closeNewDay(){
 function renderInterior(){
   const view=document.getElementById('interior-view'); if(!view) return;
   view.innerHTML='';
-  // Sky elements
+
+  // ── Sky decorations ──
   const sun=document.createElement('div'); sun.className='sky-sun'; sun.textContent='☀️'; view.appendChild(sun);
-  const cl1=document.createElement('div'); cl1.className='sky-cloud'; cl1.textContent='☁️'; cl1.style.cssText='top:8px;left:-30px;animation:cloudMove 20s linear infinite'; view.appendChild(cl1);
-  const cl2=document.createElement('div'); cl2.className='sky-cloud'; cl2.textContent='☁️'; cl2.style.cssText='top:20px;left:-70px;font-size:1rem;animation:cloudMove 30s linear infinite'; view.appendChild(cl2);
-  // Shop name
+  const cl1=document.createElement('div'); cl1.className='sky-cloud'; cl1.textContent='☁️';
+  cl1.style.cssText='top:8px;left:-40px;animation-duration:18s'; view.appendChild(cl1);
+  const cl2=document.createElement('div'); cl2.className='sky-cloud'; cl2.textContent='☁️';
+  cl2.style.cssText='top:22px;left:-80px;font-size:.9rem;opacity:.5;animation-duration:28s'; view.appendChild(cl2);
+
+  // ── Shop name banner ──
   const banner=document.createElement('div'); banner.className='shop-name-banner';
-  banner.textContent=getCurrentBranch()?.shopName||state.charName+'的早餐店'; view.appendChild(banner);
-  // Interior grid
-  const br=getCurrentBranch(); if(!br||!br.layout) return;
-  const ig=document.createElement('div'); ig.className='interior-grid';
-  const h=Math.min(170,Math.floor((window.innerHeight*.38)/FLOOR_ROWS));
-  ig.style.gridTemplateColumns=`repeat(${FLOOR_COLS},1fr)`;
-  ig.style.gridTemplateRows=`repeat(${FLOOR_ROWS},${h}px)`;
-  br.layout.forEach(key=>{
-    const cell=document.createElement('div'); cell.className='int-cell';
+  banner.textContent=getCurrentBranch()?.shopName||(state.charName+'的早餐店');
+  view.appendChild(banner);
+
+  // ── Shop building (always shown) ──
+  const building=document.createElement('div');
+  building.style.cssText=`
+    position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+    width:min(340px,95%);
+    background:linear-gradient(180deg,#c94a20,#8c2e10);
+    border-radius:10px 10px 0 0;
+    box-shadow:0 -4px 16px rgba(0,0,0,.45);
+    overflow:hidden;
+    display:flex;flex-direction:column;
+  `;
+
+  const br=getCurrentBranch();
+  const layout=br?.layout||[];
+
+  // If layout is empty, show a simple default shop face
+  if(layout.filter(x=>x!==null).length===0){
+    building.style.height='140px';
+    building.innerHTML=`
+      <div style="text-align:center;padding:12px 8px 0;font-size:.7rem;color:rgba(255,255,255,.6)">店面佈置中…</div>
+      <div style="display:flex;justify-content:center;gap:8px;padding:8px;flex-wrap:wrap">
+        <span style="font-size:1.6rem">🍳</span>
+        <span style="font-size:1.6rem">💰</span>
+        <span style="font-size:1.6rem">🪑</span>
+        <span style="font-size:1.6rem">☕</span>
+      </div>
+      <div style="text-align:center;font-size:.65rem;color:rgba(255,255,255,.5);padding:4px">點「購買」頁面可新增設備</div>
+    `;
+    view.appendChild(building);
+    return;
+  }
+
+  // Build actual grid from layout
+  // Calculate cell size to fill building nicely
+  const viewH=view.offsetHeight||200;
+  const buildingH=Math.min(Math.floor(viewH*0.75), 200);
+  const cellSize=Math.floor((buildingH-12)/FLOOR_ROWS);
+  building.style.height=buildingH+'px';
+
+  const ig=document.createElement('div');
+  ig.style.cssText=`
+    display:grid;
+    grid-template-columns:repeat(${FLOOR_COLS},1fr);
+    grid-template-rows:repeat(${FLOOR_ROWS},${cellSize}px);
+    gap:2px;padding:4px;flex:1;
+  `;
+
+  layout.forEach(key=>{
+    const cell=document.createElement('div');
+    cell.style.cssText='background:rgba(255,220,180,.1);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden';
     if(key){
       const it=FLOOR_ITEMS[key];
-      if(it){ cell.innerHTML=`${it.emoji}<span class="ic-lbl">${it.name}</span>`; }
+      if(it){
+        const sz=Math.max(12,Math.min(20,cellSize-8));
+        cell.innerHTML=`<span style="font-size:${sz}px;line-height:1">${it.emoji}</span><span style="font-size:9px;color:rgba(255,255,255,.55);margin-top:1px;overflow:hidden;white-space:nowrap;max-width:100%;text-overflow:ellipsis;padding:0 2px">${it.name}</span>`;
+      }
     }
     ig.appendChild(cell);
   });
-  view.appendChild(ig);
+  building.appendChild(ig);
+  view.appendChild(building);
 }
 
 // ══════════════ ORDER SYSTEM ══════════════
